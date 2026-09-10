@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "回看这次操作",
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
+  "usingComponents": {
+    "optional-supplement": "/components/optional-supplement/index"
+  }
+}

@@ -1,0 +1,5 @@
+.trend-chart { position: relative; width: 100%; }
+.trend-chart__canvas { width: 100%; height: 210rpx; }
+.trend-chart__canvas--compact { height: 82rpx; }
+.trend-chart__labels { display: flex; justify-content: space-between; margin-top: 2rpx; color: var(--color-text-placeholder); font-size: 19rpx; }
+.trend-chart__empty { position: absolute; top: 82rpx; left: 0; right: 0; color: var(--color-text-placeholder); font-size: var(--font-size-2xs); text-align: center; }

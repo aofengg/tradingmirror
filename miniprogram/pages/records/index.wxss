@@ -1,0 +1,56 @@
+.records-page { padding-top: 34rpx; }
+.records-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24rpx; }
+.records-head > view:first-child { flex: 1; min-width: 0; }
+.add-button { position: relative; width: 88rpx; height: 88rpx; display: flex; align-items: center; justify-content: center; flex: none; margin-bottom: 4rpx; border-radius: 28rpx; background: linear-gradient(135deg, #2b7963, #185442); box-shadow: 0 13rpx 28rpx rgba(31,104,85,.2); transition: opacity .16s ease, transform .16s ease; }
+.add-button__line { position: absolute; width: 30rpx; height: 4rpx; border-radius: 2rpx; background: #fff; }
+.add-button__line--vertical { transform: rotate(90deg); }
+
+.filter-scroll { width: calc(100% + 60rpx); margin: 34rpx -30rpx 0; white-space: nowrap; }
+.filter-list { display: inline-flex; gap: 12rpx; padding: 0 30rpx 8rpx; }
+.filter-chip { min-height: 66rpx; display: flex; align-items: center; gap: 8rpx; padding: 0 24rpx; border: 1rpx solid var(--color-border); border-radius: var(--radius-round); color: var(--color-text-secondary); background: rgba(255,254,250,.7); font-size: var(--font-size-xs); }
+.filter-chip--active { color: #fff; border-color: var(--color-ink-soft); background: var(--color-ink-soft); box-shadow: 0 8rpx 18rpx rgba(31,49,42,.12); }
+.filter-chip__count { min-width: 29rpx; height: 29rpx; padding: 0 7rpx; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-round); color: var(--color-warm); background: rgba(179,116,66,.12); font-size: 19rpx; font-weight: 700; line-height: 29rpx; text-align: center; }
+.filter-chip--active .filter-chip__count { color: var(--color-ink-soft); background: rgba(255,255,255,.84); }
+
+.todo-filter { display: flex; margin-top: 18rpx; padding: 6rpx; border: 1rpx solid rgba(210,216,207,.8); border-radius: 18rpx; background: rgba(238,242,237,.76); }
+.todo-filter__item { flex: 1; min-height: 56rpx; display: flex; align-items: center; justify-content: center; gap: 7rpx; border-radius: 13rpx; color: var(--color-text-secondary); font-size: 23rpx; transition: color .16s ease, background .16s ease, box-shadow .16s ease; }
+.todo-filter__item--active { color: var(--color-primary); background: var(--color-paper); box-shadow: 0 3rpx 10rpx rgba(31,49,42,.08); font-weight: 650; }
+.todo-filter__count { color: var(--color-text-placeholder); font-size: 20rpx; }
+.todo-filter__item--active .todo-filter__count { color: var(--color-primary-light); }
+
+.state-card { margin-top: 34rpx; overflow: hidden; }
+.record-list { margin-top: 27rpx; }
+.record-list--todo { margin-top: 16rpx; }
+.todo-group-head { display: flex; align-items: center; justify-content: space-between; padding: 13rpx 6rpx 11rpx; color: var(--color-ink-soft); font-size: 24rpx; font-weight: 650; }
+.todo-group-head text:last-child { color: var(--color-text-placeholder); font-size: 21rpx; font-weight: 400; }
+.record-swipe { position: relative; margin-bottom: 18rpx; overflow: hidden; border-radius: var(--radius-lg); }
+.record-swipe__delete { position: absolute; top: 0; right: 0; bottom: 0; width: 148rpx; display: flex; align-items: center; justify-content: center; color: #fff; background: #b64a45; font-size: var(--font-size-sm); font-weight: 660; }
+.record-swipe__delete::before { content: ''; position: absolute; top: 0; bottom: 0; left: -24rpx; width: 25rpx; background: linear-gradient(90deg, transparent, rgba(182,74,69,.16)); }
+.record-swipe__content { position: relative; z-index: 1; transition: transform .22s cubic-bezier(.2,.72,.25,1); will-change: transform; }
+.record-swipe--dragging .record-swipe__content { transition: none; }
+.record-card { position: relative; margin-bottom: 0; padding: 27rpx 27rpx 25rpx 34rpx; overflow: hidden; background: var(--color-paper); }
+.record-card__rail { position: absolute; top: 27rpx; bottom: 27rpx; left: 0; width: 6rpx; border-radius: 0 6rpx 6rpx 0; background: var(--color-border-strong); }
+.record-card--planned .record-card__rail { background: var(--color-primary); }
+.record-card--impulsive .record-card__rail { background: var(--color-warm); }
+.record-card__head, .record-card__footer, .record-card__identity, .record-card__tools, .record-card__status, .record-card__execution { display: flex; align-items: center; }
+.record-card__head, .record-card__footer { justify-content: space-between; gap: 20rpx; }
+.record-card__identity { gap: 13rpx; min-width: 0; }
+.record-card__symbol { color: var(--color-ink); font-size: 36rpx; font-weight: 740; letter-spacing: .5rpx; }
+.record-card__action { padding: 6rpx 12rpx; border-radius: 10rpx; color: var(--color-primary); background: var(--color-primary-mist); font-size: var(--font-size-2xs); font-weight: 650; }
+.record-card__execution { gap: 3rpx; min-height: 42rpx; padding: 0 12rpx; border: 1rpx solid var(--color-border); border-radius: 12rpx; color: var(--color-text-secondary); background: rgba(255,254,250,.72); font-size: 21rpx; font-weight: 600; }
+.record-card__execution--pending { color: var(--color-warm); border-color: rgba(179,116,66,.24); background: rgba(179,116,66,.08); }
+.record-card__execution--executed { color: var(--color-primary); border-color: rgba(43,121,99,.22); background: var(--color-primary-mist); }
+.record-card__execution--cancelled { color: var(--color-text-tertiary); }
+.record-card__execution-arrow { margin-top: -3rpx; font-size: 21rpx; }
+.record-card__tools { gap: 5rpx; }
+.record-card__time { color: var(--color-text-placeholder); font-size: var(--font-size-2xs); }
+.record-card__menu { width: 60rpx; height: 60rpx; display: flex; align-items: center; justify-content: center; }
+.record-card__menu image { width: 34rpx; height: 34rpx; }
+.record-card__caption { display: block; margin-top: 20rpx; color: var(--color-text-placeholder); font-size: var(--font-size-2xs); }
+.record-card__reason { display: block; margin-top: 7rpx; color: var(--color-ink-soft); font-size: var(--font-size-md); font-weight: 520; line-height: 1.55; }
+.record-card__footer { margin-top: 23rpx; padding-top: 19rpx; border-top: 1rpx solid rgba(222,223,216,.7); }
+.record-card__status { gap: 8rpx; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.record-card__status-dot { width: 10rpx; height: 10rpx; border-radius: 50%; background: var(--color-warm); }
+.record-card__status-dot--done { background: var(--color-primary-light); }
+.record-card__status--link { color: var(--color-primary); font-weight: 650; }
+.records-more { padding: 28rpx 0 12rpx; color: var(--color-text-tertiary); font-size: 24rpx; text-align: center; }

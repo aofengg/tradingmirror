@@ -1,0 +1,83 @@
+.state {
+  min-height: 390rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 54rpx 36rpx;
+  text-align: center;
+}
+
+.state--compact { min-height: 260rpx; padding: 36rpx 24rpx; }
+
+.state__illustration {
+  position: relative;
+  width: 136rpx;
+  height: 112rpx;
+  margin-bottom: 28rpx;
+  border: 1rpx solid #d7ddd7;
+  border-radius: 24rpx;
+  background: #fffefa;
+  box-shadow: 0 12rpx 28rpx rgba(35, 53, 46, 0.07);
+  transform: rotate(-2deg);
+}
+
+.state__illustration::after {
+  content: '';
+  position: absolute;
+  top: 12rpx;
+  right: -12rpx;
+  bottom: -12rpx;
+  left: 12rpx;
+  z-index: -1;
+  border-radius: 24rpx;
+  background: #e3efe9;
+}
+
+.state__illustration--error::after { background: #f5e4e1; }
+.state__line { position: absolute; left: 24rpx; height: 4rpx; border-radius: 2rpx; background: #cbd3cd; }
+.state__line--one { top: 34rpx; width: 58rpx; }
+.state__line--two { top: 54rpx; width: 82rpx; }
+
+.state__seal {
+  position: absolute;
+  right: 18rpx;
+  bottom: 16rpx;
+  width: 30rpx;
+  height: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #1f6855;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.state__illustration--error .state__seal { background: #a6534d; }
+.state__title { color: #25352f; font-size: 30rpx; font-weight: 650; }
+.state__description { max-width: 480rpx; margin-top: 12rpx; color: #7a8680; font-size: 25rpx; line-height: 1.65; }
+
+.state__action {
+  min-width: 210rpx;
+  min-height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 28rpx;
+  padding: 0 30rpx;
+  border: 1rpx solid #bfc9c2;
+  border-radius: 38rpx;
+  color: #1f6855;
+  background: #fffefa;
+  font-weight: 650;
+}
+
+.state__action--pressed { opacity: 0.68; transform: scale(0.98); }
+
+.state__loader { display: flex; gap: 12rpx; margin-bottom: 28rpx; }
+.state__loader view { width: 13rpx; height: 13rpx; border-radius: 50%; background: #1f6855; animation: pulse 1s infinite ease-in-out; }
+.state__loader view:nth-child(2) { animation-delay: 0.14s; }
+.state__loader view:nth-child(3) { animation-delay: 0.28s; }
+@keyframes pulse { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-8rpx); } }

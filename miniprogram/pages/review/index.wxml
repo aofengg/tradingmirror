@@ -1,0 +1,87 @@
+<view class="page review-page">
+  <view class="page-content">
+    <view class="period-switch" role="tablist">
+      <view class="period-switch__item {{periodType === 'week' ? 'period-switch__item--active' : ''}}" data-period="week" bindtap="switchPeriod">周复盘</view>
+      <view class="period-switch__item {{periodType === 'month' ? 'period-switch__item--active' : ''}}" data-period="month" bindtap="switchPeriod">月复盘</view>
+    </view>
+    <text class="eyebrow">{{periodLabel}}</text>
+    <text class="page-title">{{periodType === 'week' ? '这一周，只看行为' : '这个月，看看变化'}}</text>
+    <text class="page-subtitle">{{periodType === 'week' ? '短周期及时纠偏，不拿后来涨跌反推对错。' : '把每一次小选择连起来，看见自己是否更稳定。'}}</text>
+
+    <view wx:if="{{loading}}" class="card state-card">
+      <state-view type="loading" title="{{periodType === 'week' ? '正在整理这一周' : '正在整理这个月'}}" description="只统计你真正执行过的操作" />
+    </view>
+
+    <block wx:elif="{{summary}}">
+      <block wx:if="{{summary.eventCount}}">
+        <view class="score-card">
+          <view class="score-card__copy">
+            <text class="score-card__label">按计划行动</text>
+            <view class="score-card__number"><text>{{summary.disciplineScore}}</text><text>%</text></view>
+            <text class="score-card__hint">这不是成绩，只是一面镜子</text>
+          </view>
+          <view class="score-card__visual">
+            <view class="score-card__ring"><view class="score-card__ring-inner"><text>{{summary.eventCount}}</text><text>次操作</text></view></view>
+          </view>
+        </view>
+
+        <view class="stats">
+          <view class="stat-card"><text class="stat-card__value">{{summary.impulsiveCount}}</text><text class="stat-card__label">临时决定</text></view>
+          <view class="stat-card"><text class="stat-card__value">{{summary.reviewedCount}}</text><text class="stat-card__label">完成回看</text></view>
+          <view class="stat-card"><text class="stat-card__value">{{summary.regretCount}}</text><text class="stat-card__label">当前懊悔</text></view>
+        </view>
+
+        <view class="card pattern-card">
+          <view class="pattern-card__head"><view class="pattern-card__mark"><view></view><view></view><view></view></view><text class="section-kicker">{{periodType === 'week' ? '本周出现的模式' : '本月出现的模式'}}</text></view>
+          <text class="pattern-card__title">{{summary.pattern}}</text>
+          <view class="pattern-card__meta"><text>回看率 {{summary.reviewRate}}%</text><text wx:if="{{summary.changedFeelingCount}}">{{summary.changedFeelingCount}} 次感受发生变化</text><text wx:else>继续记录，模式会更清楚</text></view>
+        </view>
+      </block>
+
+      <view wx:else class="card state-card state-card--period-empty">
+        <state-view type="empty" title="{{periodType === 'week' ? '这一周很安静' : '这个月还没有操作'}}" description="没有交易，就不用为了复盘而复盘。趋势会保留过去有记录的周期。" />
+      </view>
+
+      <view class="card trend-card {{trendExpanded ? 'trend-card--expanded' : 'trend-card--compact'}}" bindtap="toggleTrend">
+        <view class="trend-card__head">
+          <view><text class="section-kicker">计划执行率趋势</text><text class="trend-card__title">{{periodType === 'week' ? '最近 8 周' : '最近 6 个月'}}</text></view>
+          <view wx:if="{{summary.trendReady}}" class="trend-card__action">{{trendExpanded ? '收起' : '展开'}}<view class="trend-card__chevron {{trendExpanded ? 'trend-card__chevron--up' : ''}}"></view></view>
+          <text wx:else class="trend-card__pending">{{summary.trendActiveCount}} / 2 期</text>
+        </view>
+
+        <view wx:if="{{showTrendGuide}}" class="trend-guide" catchtap="dismissTrendGuide"><view class="trend-guide__mark">✓</view><view><text>你的趋势刚刚长出来了</text><text>它只比较计划执行率，不评价收益。</text></view><text>知道了</text></view>
+
+        <block wx:if="{{!summary.trendReady}}">
+          <view class="trend-progress"><view class="trend-progress__track"><view style="width: {{summary.trendProgress}}%"></view></view><text>再有一个有操作的周期，就能生成趋势</text></view>
+        </block>
+
+        <block wx:elif="{{!trendExpanded}}">
+          <view class="trend-preview">
+            <view class="trend-preview__value"><view><text>{{summary.trendCurrentValue}}</text><text>%</text></view><text>当前周期</text></view>
+            <view class="trend-preview__chart"><trend-chart id="trendPreviewChart" class="trend-preview__component" points-json="{{trendPointsJson}}" compact /></view>
+          </view>
+          <text class="trend-preview__insight">{{summary.trendInsight}}</text>
+        </block>
+
+        <block wx:else>
+          <view class="trend-card__legend"><view></view><text>行为稳定度</text></view>
+          <trend-chart id="trendFullChart" class="trend-full__component" points-json="{{trendPointsJson}}" />
+          <view class="trend-card__insight"><view class="trend-card__spark">↗</view><text>{{summary.trendInsight}}</text></view>
+        </block>
+      </view>
+
+      <block wx:if="{{periodType === 'week' && summary.eventCount}}">
+        <view class="focus-head"><view><text class="section-kicker">给下周留一句话</text><text class="focus-title">最想少做哪一件事？</text></view><text class="focus-head__hint">只选一条</text></view>
+        <view class="focus-list">
+          <view wx:for="{{summary.focuses}}" wx:key="key" class="focus-choice {{selectedFocus === item.key ? 'focus-choice--selected' : ''}}" data-key="{{item.key}}" bindtap="chooseFocus">
+            <view class="focus-choice__radio"><view wx:if="{{selectedFocus === item.key}}"></view></view><text>{{item.label}}</text><text class="focus-choice__arrow">›</text>
+          </view>
+        </view>
+      </block>
+    </block>
+
+    <view wx:else class="card state-card">
+      <state-view type="error" title="复盘暂时没生成" description="记录不会丢失，稍后再试一次" action-text="重新整理" bind:action="retry" />
+    </view>
+  </view>
+</view>

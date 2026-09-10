@@ -1,0 +1,46 @@
+/* 冷静账本：交易留痕设计令牌 */
+page {
+  --color-ink: #172621;
+  --color-ink-soft: #33453e;
+  --color-primary: #1f6855;
+  --color-primary-dark: #12493b;
+  --color-primary-light: #63a18d;
+  --color-primary-soft: #e3efe9;
+  --color-primary-mist: #f0f6f2;
+  --color-paper: #fffefa;
+  --color-bg-page: #f4f3ed;
+  --color-bg-card: #fffefa;
+  --color-bg-soft: #ebece5;
+  --color-text-primary: #172621;
+  --color-text-secondary: #65736d;
+  --color-text-placeholder: #9aa49f;
+  --color-border: #dedfd8;
+  --color-border-strong: #c5cbc5;
+  --color-warm: #bc7a35;
+  --color-warm-dark: #87521f;
+  --color-warm-soft: #f5e8d7;
+  --color-danger: #a6534d;
+  --color-danger-soft: #f5e4e1;
+  --font-size-2xs: 20rpx;
+  --font-size-xs: 23rpx;
+  --font-size-sm: 26rpx;
+  --font-size-md: 29rpx;
+  --font-size-lg: 34rpx;
+  --font-size-xl: 42rpx;
+  --font-size-hero: 54rpx;
+  --radius-xs: 10rpx;
+  --radius-sm: 16rpx;
+  --radius-md: 24rpx;
+  --radius-lg: 34rpx;
+  --radius-xl: 44rpx;
+  --radius-round: 999rpx;
+  --spacing-xs: 10rpx;
+  --spacing-sm: 18rpx;
+  --spacing-md: 26rpx;
+  --spacing-lg: 34rpx;
+  --spacing-xl: 48rpx;
+  --page-padding: 30rpx;
+  --tab-bar-height: 132rpx;
+  --shadow-card: 0 12rpx 34rpx rgba(35, 53, 46, 0.07);
+  --shadow-float: 0 18rpx 46rpx rgba(27, 54, 44, 0.14);
+}

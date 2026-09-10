@@ -1,0 +1,26 @@
+<view wx:if="{{!hideTrigger}}" class="supplement-trigger" hover-class="supplement-trigger--pressed" bindtap="open">
+  <view class="supplement-trigger__plus">＋</view>
+  <text>{{triggerText || (note || attachments.length ? '查看或修改补充' : '补充备注或截图')}}</text>
+  <text class="supplement-trigger__optional">选填 ›</text>
+</view>
+
+<view wx:if="{{expanded}}" class="supplement-overlay" catchtap="close">
+  <view class="supplement-sheet" catchtap="stop">
+    <view class="supplement-sheet__handle"></view>
+    <view class="supplement-sheet__head">
+      <view><text class="supplement-sheet__eyebrow">可选补充</text><text class="supplement-sheet__title">{{sheetTitle || '只在你想记时写一点'}}</text></view>
+      <view class="supplement-sheet__close" bindtap="close">×</view>
+    </view>
+    <textarea class="supplement-note" value="{{draftNote}}" maxlength="300" auto-height placeholder="{{placeholder || '例如当时看到的信息、仓位顾虑……'}}" placeholder-class="supplement-note__placeholder" bindinput="onNoteInput" />
+    <view class="supplement-count">{{draftNote.length}} / 300</view>
+    <view class="supplement-images">
+      <view wx:for="{{draftAttachments}}" wx:key="preview_url" class="supplement-image">
+        <image src="{{item.preview_url || item.file_id}}" mode="aspectFill" />
+        <view class="supplement-image__remove" data-index="{{index}}" catchtap="removeImage">×</view>
+      </view>
+      <view wx:if="{{draftAttachments.length < maxCount}}" class="supplement-image supplement-image--add" bindtap="chooseImages"><text>＋</text><text>截图</text></view>
+    </view>
+    <text class="supplement-hint">最多3张，上传前会自动压缩；单张压缩后不超过5MB。</text>
+    <view class="supplement-save {{saving ? 'supplement-save--disabled' : ''}}" bindtap="save">{{saving ? '正在压缩并保存…' : '保存补充'}}</view>
+  </view>
+</view>

@@ -1,0 +1,58 @@
+<view class="page mine-page">
+  <view class="page-content">
+    <view class="brand-card">
+      <view class="brand-card__halo"></view>
+      <image class="brand-avatar" src="/assets/images/app-avatar.png" mode="aspectFill" />
+      <view class="brand-card__copy">
+        <text class="brand-card__name">交易留痕</text>
+        <text class="brand-card__sub">把冲动变成看得见的行为</text>
+      </view>
+      <text class="brand-card__version">01</text>
+    </view>
+
+    <view class="principle-card">
+      <text class="principle-card__label">我们的原则</text>
+      <text class="principle-card__quote">不替你预测市场，只帮你记住当时的自己。</text>
+      <view class="principle-card__rule"></view>
+    </view>
+
+    <view class="section-head">
+      <text class="section-kicker">正在执行</text>
+      <text class="section-head__action" bindtap="openReview">去复盘设置 ›</text>
+    </view>
+    <view class="card focus-card" bindtap="openReview">
+      <view class="focus-card__icon"><view></view></view>
+      <view class="focus-card__copy">
+        <text class="focus-card__title">本周唯一提醒</text>
+        <text wx:if="{{currentFocus && currentFocus.label}}" class="focus-card__content">少一次“{{currentFocus.label}}”。</text>
+        <text wx:else class="focus-card__content focus-card__content--muted">完成一次周复盘后，在这里守住一条规则。</text>
+      </view>
+      <image class="row-arrow" src="/assets/icons/arrow-right.svg" mode="aspectFit" />
+    </view>
+
+    <view class="section-head section-head--symbols"><text class="section-kicker">最近记录过</text></view>
+    <view class="card symbol-card">
+      <view class="symbol-list">
+        <text wx:for="{{recentSymbols}}" wx:key="*this" class="symbol-pill">{{item}}</text>
+        <view wx:if="{{!recentSymbols.length}}" class="symbol-empty">
+          <view class="symbol-empty__dot"></view><text>还没有标的，第一次记录后会自动出现</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="card settings-card">
+      <view class="settings-row" bindtap="showDataNotice">
+        <image class="settings-row__icon" src="/assets/icons/shield.svg" mode="aspectFit" />
+        <view class="settings-row__copy"><text>数据与隐私</text><text>只保存行为，不连接券商账户</text></view>
+        <image class="row-arrow" src="/assets/icons/arrow-right.svg" mode="aspectFit" />
+      </view>
+      <view class="settings-row" bindtap="showAbout">
+        <image class="settings-row__icon" src="/assets/icons/info.svg" mode="aspectFit" />
+        <view class="settings-row__copy"><text>关于交易留痕</text><text>产品理念与使用边界</text></view>
+        <image class="row-arrow" src="/assets/icons/arrow-right.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <text class="disclaimer">仅用于个人行为记录与自我复盘，不构成投资建议</text>
+  </view>
+</view>

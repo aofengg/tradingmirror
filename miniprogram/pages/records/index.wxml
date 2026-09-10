@@ -1,0 +1,87 @@
+<view class="page records-page">
+  <view class="page-content">
+    <view class="records-head">
+      <view>
+        <text class="eyebrow">每一次决定，都有来处</text>
+        <text class="page-title">行为记录</text>
+        <text class="page-subtitle">回看当时的理由，不用结果改写记忆。</text>
+      </view>
+      <view class="add-button" hover-class="button-pressed" bindtap="createRecord">
+        <view class="add-button__line"></view><view class="add-button__line add-button__line--vertical"></view>
+      </view>
+      <view wx:if="{{loadingMore}}" class="records-more">正在翻开更早的记录…</view>
+      <view wx:elif="{{!hasMore && events.length > 10}}" class="records-more">已经看到最早一条</view>
+    </view>
+
+    <scroll-view wx:if="{{events.length}}" class="filter-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="filter-list">
+        <view wx:for="{{filters}}" wx:key="key" class="filter-chip {{filter === item.key ? 'filter-chip--active' : ''}}" data-filter="{{item.key}}" bindtap="chooseFilter">
+          <text>{{item.label}}</text>
+          <text wx:if="{{item.key === 'pending' && todoCounts.all}}" class="filter-chip__count">{{todoCounts.all}}</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view wx:if="{{events.length && filter === 'pending'}}" class="todo-filter" aria-label="待办类型">
+      <view wx:for="{{todoFilters}}" wx:key="key" class="todo-filter__item {{todoFilter === item.key ? 'todo-filter__item--active' : ''}}" data-filter="{{item.key}}" bindtap="chooseTodoFilter">
+        <text>{{item.label}}</text><text class="todo-filter__count">{{item.count}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{loading}}" class="card state-card">
+      <state-view type="loading" title="正在翻开记录" description="稍等一下" />
+    </view>
+
+    <view wx:elif="{{filteredEvents.length}}" class="record-list {{filter === 'pending' ? 'record-list--todo' : ''}}">
+      <block wx:for="{{filteredEvents}}" wx:key="_id">
+        <view wx:if="{{item.todo_group_label}}" class="todo-group-head">
+          <text>{{item.todo_group_label}}</text><text>{{item.todo_group_count}} 条</text>
+        </view>
+        <view class="record-swipe {{draggingSwipeId === item._id ? 'record-swipe--dragging' : ''}}" data-index="{{index}}" bindtouchstart="onCardTouchStart" bindtouchmove="onCardTouchMove" bindtouchend="onCardTouchEnd" bindtouchcancel="onCardTouchCancel">
+        <view class="record-swipe__delete" data-id="{{item._id}}" data-symbol="{{item.symbol}}" catchtap="deleteRecord"><text>删除</text></view>
+        <view class="record-swipe__content" style="transform: translateX({{item.swipe_offset || 0}}px);">
+          <view class="card record-card record-card--{{item.plan_status}}" data-id="{{item._id}}" data-status="{{item.execution_status}}" bindtap="openReflection">
+            <view class="record-card__rail"></view>
+            <view class="record-card__head">
+              <view class="record-card__identity">
+                <text class="record-card__symbol">{{item.symbol}}</text>
+                <text class="record-card__action">{{item.action_label}}</text>
+                <view class="record-card__execution record-card__execution--{{item.execution_status}}" data-id="{{item._id}}" data-status="{{item.execution_status}}" data-reflection-count="{{item.reflection_count}}" catchtap="openStatusMenu">
+                  <text>{{item.execution_label}}</text><text class="record-card__execution-arrow">⌄</text>
+                </view>
+              </view>
+              <view class="record-card__tools">
+                <text class="record-card__time">{{item.created_label}}</text>
+                <view class="record-card__menu" data-id="{{item._id}}" data-symbol="{{item.symbol}}" data-status="{{item.execution_status}}" data-reflection-count="{{item.reflection_count}}" catchtap="openRecordMenu"><image src="/assets/icons/more.svg" mode="aspectFit" /></view>
+              </view>
+            </view>
+            <text class="record-card__caption">当时最主要的原因</text>
+            <text class="record-card__reason">“{{item.reason_label}}”</text>
+            <view class="record-card__footer">
+              <text class="pill {{item.plan_status === 'impulsive' ? 'pill--warm' : ''}}">{{item.plan_label}}</text>
+              <view class="record-card__status">
+                <view class="record-card__status-dot {{item.latest_feeling_label ? 'record-card__status-dot--done' : ''}}"></view>
+                <text wx:if="{{item.execution_status !== 'executed'}}">{{item.execution_label}}</text>
+                <text wx:elif="{{item.latest_feeling_label}}">现在：{{item.latest_feeling_label}}</text>
+                <text class="record-card__status--link" wx:else>待回看 ›</text>
+              </view>
+            </view>
+          </view>
+        </view>
+        </view>
+      </block>
+    </view>
+
+    <view wx:elif="{{events.length && !filteredEvents.length}}" class="card state-card">
+      <state-view type="empty" title="{{filter === 'pending' ? '这里暂时没有待办' : '这一类还没有记录'}}" description="{{filter === 'pending' ? '新的待确认或待回看会出现在这里' : '换个筛选，或者记下下一次真实操作'}}" compact />
+    </view>
+
+    <view wx:elif="{{!loadError}}" class="card state-card state-card--empty">
+      <state-view type="empty" title="第一条痕迹，从下一次操作开始" description="不用补写过去，也不用写长日记。十几秒，留下当时最主要的原因。" action-text="记下第一次" bind:action="createRecord" />
+    </view>
+
+    <view wx:else class="card state-card">
+      <state-view type="error" title="记录暂时没打开" description="稍后重试，不会影响已经保存的内容" action-text="重新加载" bind:action="retry" />
+    </view>
+  </view>
+</view>

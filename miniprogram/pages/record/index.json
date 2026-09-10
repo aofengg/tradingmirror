@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "记下操作",
+  "disableScroll": true,
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
+  "usingComponents": {
+    "optional-supplement": "/components/optional-supplement/index"
+  }
+}

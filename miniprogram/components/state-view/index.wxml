@@ -1,0 +1,11 @@
+<view class="state {{compact ? 'state--compact' : ''}}">
+  <view wx:if="{{type === 'loading'}}" class="state__loader"><view></view><view></view><view></view></view>
+  <view wx:else class="state__illustration state__illustration--{{type}}">
+    <view class="state__line state__line--one"></view>
+    <view class="state__line state__line--two"></view>
+    <view class="state__seal">{{type === 'error' ? '!' : '·'}}</view>
+  </view>
+  <text class="state__title">{{title}}</text>
+  <text wx:if="{{description}}" class="state__description">{{description}}</text>
+  <view wx:if="{{actionText}}" class="state__action" hover-class="state__action--pressed" bindtap="handleAction">{{actionText}}</view>
+</view>

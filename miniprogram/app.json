@@ -1,0 +1,32 @@
+{
+  "pages": [
+    "pages/today/index",
+    "pages/records/index",
+    "pages/review/index",
+    "pages/mine/index",
+    "pages/record/index",
+    "pages/reflection/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "交易留痕",
+    "navigationBarBackgroundColor": "#F4F3ED",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F4F3ED",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#7A8680",
+    "selectedColor": "#24624E",
+    "backgroundColor": "#FFFFFF",
+    "list": [
+      { "pagePath": "pages/today/index", "text": "今日" },
+      { "pagePath": "pages/records/index", "text": "记录" },
+      { "pagePath": "pages/review/index", "text": "复盘" },
+      { "pagePath": "pages/mine/index", "text": "我的" }
+    ]
+  },
+  "sitemapLocation": "sitemap.json",
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents"
+}

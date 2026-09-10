@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "复盘",
+  "enablePullDownRefresh": true,
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
+  "usingComponents": {
+    "state-view": "/components/state-view/index",
+    "trend-chart": "/components/trend-chart/index"
+  }
+}

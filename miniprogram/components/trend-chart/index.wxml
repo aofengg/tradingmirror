@@ -1,0 +1,7 @@
+<view class="trend-chart">
+  <canvas canvas-id="behaviorTrendCanvas" class="trend-chart__canvas {{compact ? 'trend-chart__canvas--compact' : ''}}"></canvas>
+  <view wx:if="{{!compact}}" class="trend-chart__labels">
+    <text>{{firstLabel}}</text><text>{{middleLabel}}</text><text>{{lastLabel}}</text>
+  </view>
+  <view wx:if="{{!hasData && !compact}}" class="trend-chart__empty">有两期记录后，趋势会从这里长出来</view>
+</view>

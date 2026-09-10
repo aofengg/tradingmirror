@@ -1,0 +1,95 @@
+<view class="reflection-page">
+  <view wx:if="{{sharedEntry}}" class="reflection-share-entry">
+    <view class="reflection-share-entry__mark"><view></view><view></view><view></view></view>
+    <text class="reflection-share-entry__eyebrow">交易留痕</text>
+    <text class="reflection-share-entry__title">过后再看，感受可能不同</text>
+    <text class="reflection-share-entry__copy">这里不评价一笔交易最终涨跌，只帮助你看清当时为什么行动、后来如何感受。</text>
+    <view class="primary-button reflection-share-entry__button" bindtap="goHome">打开交易留痕</view>
+  </view>
+
+  <view wx:elif="{{loading}}" class="reflection-loading">
+    <view class="reflection-loading__dots"><view></view><view></view><view></view></view>
+    <text>正在找回当时的记录</text>
+  </view>
+
+  <block wx:elif="{{event && !completed}}">
+    <view class="reflection-head">
+      <text class="eyebrow">事后回看 · {{event.relative_label}}</text>
+      <text class="reflection-title">现在看这次操作，你是什么感受？</text>
+      <text class="reflection-subtitle">没有标准答案，也不用判断未来。</text>
+      <view wx:if="{{showReflectionGuide}}" class="reflection-guide">
+        <view class="reflection-guide__mark">3</view><text>满意或懊悔都没有标准答案。只选现在最真实的感受，不需要证明当时对错。</text><view class="reflection-guide__close" bindtap="dismissReflectionGuide">×</view>
+      </view>
+    </view>
+    <view class="event-card">
+      <view class="event-card__identity"><text>{{event.symbol}}</text><text>{{event.action_label}}</text></view>
+      <text class="event-card__caption">当时最主要的原因</text>
+      <text class="event-card__reason">“{{event.reason_label}}”</text>
+      <view class="event-card__footer">
+        <text class="pill {{event.plan_status === 'impulsive' ? 'pill--warm' : ''}}">{{event.plan_label}}</text>
+        <view class="event-card__meta"><text>{{event.created_label}}</text><text wx:if="{{!event.optional_note && !event.attachments.length}}" class="event-card__supplement-entry" catchtap="openEventSupplementEditor">补充 ›</text></view>
+      </view>
+      <view wx:if="{{event.optional_note || event.attachments.length}}" class="event-supplement">
+        <view class="event-supplement__head">
+          <view class="event-supplement__summary" bindtap="toggleEventSupplement"><text>当时留下的补充</text><text>{{event.optional_note ? '备注' : ''}}{{event.optional_note && event.attachments.length ? ' · ' : ''}}{{event.attachments.length ? event.attachments.length + '张图' : ''}}</text></view>
+          <view class="event-supplement__actions"><text catchtap="openEventSupplementEditor">修改</text><text class="event-supplement__arrow {{eventSupplementExpanded ? 'event-supplement__arrow--open' : ''}}" bindtap="toggleEventSupplement">›</text></view>
+        </view>
+        <view wx:if="{{eventSupplementExpanded}}" class="event-supplement__body">
+          <text wx:if="{{event.optional_note}}" class="event-supplement__note">{{event.optional_note}}</text>
+          <view wx:if="{{event.attachments.length}}" class="event-supplement__images">
+            <image wx:for="{{event.attachments}}" wx:key="file_id" src="{{item.file_id}}" data-src="{{item.file_id}}" mode="aspectFill" bindtap="previewEventAttachment" />
+          </view>
+        </view>
+      </view>
+    </view>
+    <optional-supplement id="eventSupplementEditor" hide-trigger entity-type="trade_event" entity-id="{{event._id}}" note="{{event.optional_note}}" attachments="{{event.attachments}}" trigger-text="补充这次操作" sheet-title="为这次操作多留一点" placeholder="例如当时看到的信息、仓位顾虑……" bind:saved="onEventSupplementSaved" />
+
+    <view wx:if="{{reflections.length}}" class="history-card">
+      <view class="history-card__head"><text class="section-kicker">感受留下的轨迹</text><text>{{reflections.length}} 次</text></view>
+      <view class="timeline">
+        <view wx:for="{{reflections}}" wx:key="_id" class="timeline__item">
+          <view class="timeline__rail"><view class="timeline__dot"></view></view>
+          <view class="timeline__content">
+            <text class="timeline__time">{{item.horizon_label}} · {{item.relative_label}}</text>
+            <text class="timeline__feeling">{{item.feeling_label}}<text wx:if="{{item.regret_reason_label}}"> · {{item.regret_reason_label}}</text></text>
+            <text wx:if="{{item.optional_note}}" class="timeline__note">{{item.optional_note}}</text>
+            <view wx:if="{{item.attachments.length}}" class="timeline__images"><image wx:for="{{item.attachments}}" wx:for-item="image" wx:key="file_id" src="{{image.file_id}}" data-src="{{image.file_id}}" data-reflection-id="{{item._id}}" mode="aspectFill" bindtap="previewReflectionAttachment" /></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{feeling !== 'regret'}}" class="feeling-section">
+      <text class="feeling-section__label">选一个最接近的</text>
+      <view class="feeling-list">
+        <view wx:for="{{feelings}}" wx:key="key" class="feeling-card feeling-card--{{item.key}}" data-feeling="{{item.key}}" hover-class="feeling-card--pressed" bindtap="chooseFeeling">
+          <image class="feeling-card__icon" src="{{item.icon}}" mode="aspectFit" />
+          <view class="feeling-card__copy"><text class="feeling-card__label">{{item.label}}</text><text class="feeling-card__hint">{{item.hint}}</text></view>
+          <text class="feeling-card__arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:else class="regret-panel">
+      <view class="regret-panel__head"><view><text class="section-kicker">再问一步</text><text class="regret-panel__title">主要因为什么懊悔？</text></view><text class="regret-panel__back" bindtap="cancelRegret">重新选择</text></view>
+      <view class="reason-list">
+        <view wx:for="{{regretReasons}}" wx:key="key" class="reason-row" data-reason="{{item.key}}" hover-class="reason-row--pressed" bindtap="chooseRegretReason"><view class="reason-row__radio"></view><text>{{item.label}}</text><text class="reason-row__arrow">›</text></view>
+      </view>
+    </view>
+
+    <view class="gentle-note"><view class="gentle-note__mark">i</view><text>感受以后变了也没关系。每次回看都会保留，不会覆盖过去。</text></view>
+    <view wx:if="{{saving}}" class="saving-mask"><view class="saving-mask__spinner"></view><text>正在记下此刻的感受</text></view>
+  </block>
+
+  <view wx:elif="{{completed}}" class="complete-state">
+    <view class="complete-orbit"><view class="complete-mark">✓</view></view>
+    <text class="complete-eyebrow">又看清了一点</text>
+    <text class="complete-title">这次感受已留下</text>
+    <text class="complete-sub">它不负责证明当时对错，只帮助未来的你看见行为模式。</text>
+    <view class="saved-feeling"><text>现在的感受</text><text>{{reflections[0].feeling_label}}<text wx:if="{{reflections[0].regret_reason_label}}"> · {{reflections[0].regret_reason_label}}</text></text></view>
+    <optional-supplement entity-type="reflection" entity-id="{{reflections[0]._id}}" note="{{reflections[0].optional_note}}" attachments="{{reflections[0].attachments}}" trigger-text="补充这次回看" sheet-title="为这次感受多留一点" placeholder="例如为什么会有这种感受……" bind:saved="onReflectionSupplementSaved" />
+    <view class="primary-button complete-button" hover-class="button-pressed" bindtap="finish">完成回看</view>
+  </view>
+
+  <view wx:else class="reflection-error"><text>这条记录暂时打不开</text><text>返回后稍后再试，已保存的数据不会受到影响。</text></view>
+</view>

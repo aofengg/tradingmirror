@@ -1,0 +1,119 @@
+<view class="page today-page">
+  <view class="page-content">
+    <view class="hero">
+      <view class="hero__meta">
+        <text class="eyebrow">{{dateLabel}}</text>
+        <view class="hero__brand"><view class="hero__brand-dot"></view><text>行为优先</text></view>
+      </view>
+      <text class="page-title">{{greeting}}，留住这次决定</text>
+      <text class="page-subtitle">不预测后来涨跌，只记下此刻为什么行动。</text>
+    </view>
+
+    <view class="decision-panel">
+      <view class="decision-panel__head">
+        <text class="section-kicker">现在要做什么？</text>
+        <text class="decision-panel__time">约 10 秒</text>
+      </view>
+      <view class="decision-actions">
+        <view class="decision-card decision-card--before" hover-class="button-pressed" bindtap="startBefore">
+          <view class="decision-card__icon">
+            <view class="spark spark--one"></view><view class="spark spark--two"></view><view class="spark spark--three"></view>
+          </view>
+          <view class="decision-card__copy">
+            <text class="decision-card__title">准备操作</text>
+            <text class="decision-card__sub">先确认最主要的动机</text>
+          </view>
+          <text class="decision-card__arrow">›</text>
+        </view>
+        <view class="decision-card decision-card--after" hover-class="button-pressed" bindtap="startAfter">
+          <view class="decision-card__icon decision-card__icon--paper"><view class="paper-check">✓</view></view>
+          <view class="decision-card__copy">
+            <text class="decision-card__title">刚刚操作</text>
+            <text class="decision-card__sub">趁记忆清楚，留下现场</text>
+          </view>
+          <text class="decision-card__arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{loading}}" class="card status-shell">
+      <state-view type="loading" title="正在整理今天" description="你的记录很快就好" compact />
+    </view>
+
+    <block wx:elif="{{!loadError}}">
+      <view wx:if="{{pendingIntent}}" class="intent-stack {{pendingIntentCount > 1 ? 'intent-stack--multiple' : ''}}">
+        <view wx:if="{{pendingIntentCount > 1}}" class="intent-stack__layer intent-stack__layer--back"></view>
+        <view wx:if="{{pendingIntentCount > 1}}" class="intent-stack__layer"></view>
+        <view class="card task-card task-card--intent {{intentLeaving ? 'task-card--leaving' : ''}} {{intentAnimation === 'page-out' ? 'task-card--page-out' : ''}} {{intentAnimation === 'page-in' ? 'task-card--page-in' : ''}}">
+          <view class="task-card__rail"></view>
+          <view class="task-card__head">
+            <text class="pill">待确认</text>
+            <view wx:if="{{pendingIntentCount > 1}}" class="task-card__count" catchtap="openPendingRecords"><text>共 {{pendingIntentCount}} 条</text><text>›</text></view>
+            <text wx:else class="task-card__time">{{pendingIntent.relative_label}}</text>
+          </view>
+          <text class="task-card__eyebrow">操作前留下的想法</text>
+          <text class="task-card__title">{{pendingIntent.symbol}} · {{pendingIntent.action_label}}</text>
+          <text class="task-card__reason">“{{pendingIntent.reason_label}}”</text>
+          <view class="task-card__question-row">
+            <text class="task-card__question">后来真的执行了吗？</text>
+            <text wx:if="{{pendingIntentCount > 1}}" class="task-card__next" catchtap="showNextIntent">换一条 ›</text>
+          </view>
+          <view class="task-card__actions {{intentSaving || intentSwitching ? 'task-card__actions--disabled' : ''}}">
+            <view class="secondary-button task-card__button" data-status="cancelled" bindtap="confirmIntent">未执行</view>
+            <view class="primary-button task-card__button" data-status="executed" bindtap="confirmIntent">已执行</view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{pending}}" class="card task-card task-card--reflection">
+        <view class="task-card__rail"></view>
+        <view class="task-card__head">
+          <text class="pill pill--warm">可以回看了</text>
+          <text class="task-card__time">{{pending.relative_label}}</text>
+        </view>
+        <text class="task-card__eyebrow">当时因为</text>
+        <text class="task-card__title">{{pending.symbol}} · {{pending.action_label}}</text>
+        <text class="task-card__reason">“{{pending.reason_label}}”</text>
+        <view class="primary-button task-card__review" hover-class="button-pressed" bindtap="openReflection">看看现在的感受</view>
+      </view>
+
+      <view wx:if="{{!pendingIntent && !pending}}" class="card calm-card">
+        <view class="calm-card__seal"><view></view></view>
+        <view class="calm-card__copy">
+          <text class="calm-card__title">今天没有待办</text>
+          <text class="calm-card__sub">没有交易，也是一种纪律。</text>
+        </view>
+        <view wx:if="{{recentCount}}" class="calm-card__link" bindtap="openRecords">最近 {{recentCount}} 条 ›</view>
+      </view>
+
+      <view class="focus-card">
+        <view class="focus-card__ornament">“</view>
+        <view class="focus-card__head">
+          <text class="section-kicker">本周只守一件事</text>
+          <text class="focus-card__tag">行为提醒</text>
+        </view>
+        <text class="focus-card__content" wx:if="{{currentFocus && currentFocus.label}}">少一次“{{currentFocus.label}}”。</text>
+        <text class="focus-card__content focus-card__content--muted" wx:else>多留几次痕迹后，这里会长出一条属于你的提醒。</text>
+        <view class="focus-card__rule"></view>
+        <text class="focus-card__foot">只看行为，不追究后来涨跌</text>
+      </view>
+    </block>
+
+    <view wx:else class="card status-shell">
+      <state-view type="error" title="今天暂时没打开" description="网络恢复后，你的记录仍会在这里" action-text="重新加载" bind:action="retry" />
+    </view>
+  </view>
+
+  <view wx:if="{{showWelcome}}" class="welcome-overlay" catchtouchmove="preventTouchMove">
+    <view class="welcome-card">
+      <view class="welcome-card__mark"><view></view><view></view><view></view></view>
+      <text class="welcome-card__eyebrow">欢迎来到交易留痕</text>
+      <text class="welcome-card__title">少看结果，多看行为</text>
+      <text class="welcome-card__copy">用不到 1 分钟，记下操作前后的真实想法。</text>
+      <view class="welcome-flow"><view><text>1</text><text>留下当时决定</text></view><view class="welcome-flow__line"></view><view><text>2</text><text>过后回看感受</text></view></view>
+      <text class="welcome-card__promise">不评价股票涨跌，只帮助你看清自己。</text>
+      <view class="primary-button welcome-card__primary" hover-class="button-pressed" bindtap="startFirstRecord">记下第一笔</view>
+      <view class="welcome-card__skip" bindtap="dismissWelcome">先随便看看</view>
+    </view>
+  </view>
+</view>
