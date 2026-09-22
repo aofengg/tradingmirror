@@ -32,18 +32,22 @@
 .record-card__rail { position: absolute; top: 27rpx; bottom: 27rpx; left: 0; width: 6rpx; border-radius: 0 6rpx 6rpx 0; background: var(--color-border-strong); }
 .record-card--planned .record-card__rail { background: var(--color-primary); }
 .record-card--impulsive .record-card__rail { background: var(--color-warm); }
-.record-card__head, .record-card__footer, .record-card__identity, .record-card__tools, .record-card__status, .record-card__execution { display: flex; align-items: center; }
+.record-card__head, .record-card__footer, .record-card__identity, .record-card__badges, .record-card__tools, .record-card__status, .record-card__execution { display: flex; align-items: center; }
 .record-card__head, .record-card__footer { justify-content: space-between; gap: 20rpx; }
-.record-card__identity { gap: 13rpx; min-width: 0; }
-.record-card__symbol { color: var(--color-ink); font-size: 36rpx; font-weight: 740; letter-spacing: .5rpx; }
-.record-card__action { padding: 6rpx 12rpx; border-radius: 10rpx; color: var(--color-primary); background: var(--color-primary-mist); font-size: var(--font-size-2xs); font-weight: 650; }
+.record-card__identity { min-width: 0; flex: 1; gap: 13rpx; }
+.record-card__symbol { flex: none; color: var(--color-ink); font-size: 36rpx; font-weight: 740; letter-spacing: .5rpx; line-height: 1.3; white-space: nowrap; }
+.record-card__badges { flex: none; gap: 10rpx; }
+.record-card__head--long { align-items: flex-start; }
+.record-card__identity--long { min-width: 0; flex-direction: column; align-items: flex-start; gap: 12rpx; }
+.record-card__identity--long .record-card__symbol { min-width: 0; max-width: 100%; display: -webkit-box; overflow: hidden; white-space: normal; overflow-wrap: anywhere; word-break: break-word; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .record-card__execution { gap: 3rpx; min-height: 42rpx; padding: 0 12rpx; border: 1rpx solid var(--color-border); border-radius: 12rpx; color: var(--color-text-secondary); background: rgba(255,254,250,.72); font-size: 21rpx; font-weight: 600; }
 .record-card__execution--pending { color: var(--color-warm); border-color: rgba(179,116,66,.24); background: rgba(179,116,66,.08); }
 .record-card__execution--executed { color: var(--color-primary); border-color: rgba(43,121,99,.22); background: var(--color-primary-mist); }
 .record-card__execution--cancelled { color: var(--color-text-tertiary); }
 .record-card__execution-arrow { margin-top: -3rpx; font-size: 21rpx; }
-.record-card__tools { gap: 5rpx; }
-.record-card__time { color: var(--color-text-placeholder); font-size: var(--font-size-2xs); }
+.record-card__tools { flex: none; gap: 5rpx; }
+.record-card__head--long .record-card__tools { margin-top: -9rpx; }
+.record-card__time { color: var(--color-text-placeholder); font-size: var(--font-size-2xs); white-space: nowrap; }
 .record-card__menu { width: 60rpx; height: 60rpx; display: flex; align-items: center; justify-content: center; }
 .record-card__menu image { width: 34rpx; height: 34rpx; }
 .record-card__caption { display: block; margin-top: 20rpx; color: var(--color-text-placeholder); font-size: var(--font-size-2xs); }

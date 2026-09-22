@@ -1,0 +1,41 @@
+<view wx:if="{{count}}" class="related">
+  <view wx:if="{{preview && count >= 2}}" class="related-preview">
+    <text class="related-kicker">过去的真实记录</text>
+    <text class="related-title">你也曾因这个原因{{source.action_label}}</text>
+    <text class="related-description">这次记录前90天内，有 {{count}} 条相同动作、相同原因的已执行记录。</text>
+    <view wx:for="{{previewItems}}" wx:key="_id" class="related-mini" data-id="{{item._id}}" bindtap="openRecord" hover-class="related-pressed" role="button">
+      <view class="related-row"><text class="related-symbol">{{item.symbol}} · {{item.action_label}}</text><text class="related-arrow">›</text></view>
+      <text class="related-date">{{item.history_date}}</text>
+      <text class="related-note">{{item.history_note}}</text>
+      <text class="related-feeling">{{item.history_review_time}}{{item.history_review_time ? '：' : ''}}{{item.history_feeling}}</text>
+    </view>
+  </view>
+  <view class="related-link {{compact ? 'related-link--compact' : ''}}" bindtap="open" hover-class="related-pressed" role="button" aria-label="查看相关历史">
+    <text>{{compact ? '历史 ' : '查看相关历史 · '}}{{count}} 条</text><text class="related-arrow">›</text>
+  </view>
+</view>
+<root-portal>
+<view wx:if="{{visible}}" class="related-overlay" catchtap="close" catchtouchmove="stop">
+  <view class="related-sheet" catchtap="stop">
+    <view class="related-handle"></view>
+    <view class="related-row related-header"><text class="related-sheet-title">相关历史</text><view class="related-close" bindtap="close" role="button" aria-label="关闭相关历史">×</view></view>
+    <text class="related-description">{{source.action_label}} · {{source.reason_label}}</text>
+    <text class="related-description">这次记录前90天内的已执行记录，按执行时间排列。动作和原因相同，不代表当时情况相同。</text>
+    <scroll-view scroll-y class="related-scroll">
+      <text wx:if="{{!items.length && !loading && !failed}}" class="related-state">目前没有符合条件的历史记录</text>
+      <view wx:for="{{items}}" wx:key="_id" class="related-item" data-id="{{item._id}}" bindtap="openRecord" hover-class="related-pressed" role="button">
+        <view class="related-row"><text class="related-symbol">{{item.symbol}} · {{item.action_label}}</text><text class="related-arrow">›</text></view>
+        <text class="related-date">{{item.history_date}}</text>
+        <text class="related-note related-note--full">{{item.history_note}}</text>
+        <text class="related-feeling">{{item.history_review_time}}{{item.history_review_time ? '：' : ''}}{{item.history_feeling}}</text>
+        <text class="related-detail">查看原记录与完整回看 ›</text>
+      </view>
+      <view wx:if="{{failed}}" class="related-state" bindtap="reload" role="button">暂时没能加载，点此重试</view>
+      <text wx:elif="{{loading}}" class="related-state">正在找回历史记录…</text>
+      <view wx:elif="{{hasMore}}" class="related-state" bindtap="more" role="button">查看更多记录</view>
+      <text wx:elif="{{items.length}}" class="related-state">以上为全部相关记录</text>
+    </scroll-view>
+  </view>
+</view>
+
+</root-portal>

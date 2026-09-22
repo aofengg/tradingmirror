@@ -125,6 +125,26 @@ button::after { border: 0; }
 .pill--warm { color: var(--color-warm-dark); background: var(--color-warm-soft); }
 .pill--muted { color: var(--color-text-secondary); background: var(--color-bg-soft); }
 
+.action-tag {
+  min-height: 38rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: 0 12rpx;
+  border: 1rpx solid transparent;
+  border-radius: 10rpx;
+  font-size: var(--font-size-2xs);
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.action-tag--buy { color: #246652; border-color: rgba(36,102,82,.10); background: #e8f3ed; }
+.action-tag--add { color: #416a7a; border-color: rgba(65,106,122,.11); background: #e9f1f4; }
+.action-tag--reduce { color: #866126; border-color: rgba(134,97,38,.11); background: #f6eddb; }
+.action-tag--exit { color: #945551; border-color: rgba(148,85,81,.11); background: #f5e7e4; }
+
 .loading-state {
   min-height: 380rpx;
   display: flex;

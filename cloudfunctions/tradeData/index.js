@@ -387,7 +387,7 @@ async function saveWeeklyFocus(openid, payload) {
       })
     });
     await transaction.collection(COLLECTIONS.CONFIG).doc(config._id).update({
-      data: { current_focus: { key: key, label: FOCUSES[key], updated_at: SERVER_DATE() }, updated_at: SERVER_DATE() }
+      data: { current_focus: command.set(focus), updated_at: SERVER_DATE() }
     });
   });
   return ok(focus);
@@ -581,7 +581,23 @@ function buildPeriodSummary(events, reflections, periodType) {
     histories[item.trade_event_id] = histories[item.trade_event_id] || {};
     histories[item.trade_event_id][item.feeling] = true;
   });
+  const planned = events.filter(item => item.plan_status === 'planned');
   const impulsive = events.filter(item => item.plan_status === 'impulsive');
+  const uncertain = events.filter(item => item.plan_status === 'uncertain');
+  const reasonCounts = countBy(events, 'reason_key');
+  const reasonLabels = events.reduce((result, item) => {
+    if (item.reason_key && item.reason_label) result[item.reason_key] = item.reason_label;
+    return result;
+  }, {});
+  const reasonDistribution = Object.keys(reasonCounts)
+    .sort((a, b) => reasonCounts[b] - reasonCounts[a])
+    .slice(0, 3)
+    .map(key => ({
+      key: key,
+      label: reasonLabels[key] || key,
+      count: reasonCounts[key],
+      percentage: events.length ? Math.round(reasonCounts[key] / events.length * 100) : 0
+    }));
   const latestList = Object.keys(latest).map(key => latest[key]);
   const regrets = latestList.filter(item => item.feeling === 'regret');
   const topReason = topKey(countBy(impulsive, 'reason_key'));
@@ -597,15 +613,25 @@ function buildPeriodSummary(events, reflections, periodType) {
   const periodName = periodType === 'month' ? '本月' : '本周';
   return {
     eventCount: events.length,
+    plannedCount: planned.length,
     impulsiveCount: impulsive.length,
+    uncertainCount: uncertain.length,
     regretCount: regrets.length,
     reviewedCount: Object.keys(latest).length,
     changedFeelingCount: Object.keys(histories).filter(key => Object.keys(histories[key]).length > 1).length,
     topReasonKey: topReason,
     topReasonLabel: topReason && impulsive.find(item => item.reason_key === topReason) ? impulsive.find(item => item.reason_key === topReason).reason_label : '',
-    disciplineScore: events.length ? Math.round((events.length - impulsive.length) / events.length * 100) : null,
+    disciplineScore: events.length ? Math.round(planned.length / events.length * 100) : null,
     reviewRate: events.length ? Math.round(Object.keys(latest).length / events.length * 100) : 0,
-    pattern: topReason ? periodName + '最常见的临时原因是「' + (impulsive.find(item => item.reason_key === topReason).reason_label || topReason) + '」。' : (events.length ? periodName + '的操作多数按原计划完成。' : ''),
+    reasonDistributionReady: events.length >= 5,
+    reasonDistribution: reasonDistribution,
+    pattern: topReason
+      ? periodName + '最常见的临时原因是「' + (impulsive.find(item => item.reason_key === topReason).reason_label || topReason) + '」。'
+      : (events.length
+        ? (uncertain.length
+          ? periodName + '没有临时决定，但有 ' + uncertain.length + ' 次操作归类为「不确定」。'
+          : periodName + '的操作都按原计划完成。')
+        : ''),
     focusKeys: focuses.slice(0, 3),
     focuses: focuses.slice(0, 3).map(key => ({ key: key, label: FOCUSES[key] }))
   };
@@ -618,6 +644,47 @@ function trendInsight(points) {
   if (delta >= 5) return '比上个有记录的周期提高 ' + delta + ' 个百分点。';
   if (delta <= -5) return '最近有所回落，可以看看是哪类临时决定变多了。';
   return '最近两个有记录的周期基本稳定。';
+}
+
+function buildChangeClue(periods, summaries, periodType) {
+  const activeIndexes = summaries.map((summary, index) => summary.eventCount ? index : -1).filter(index => index >= 0);
+  if (activeIndexes.length < 3) return { ready: false, text: '' };
+  const currentIndex = activeIndexes[activeIndexes.length - 1];
+  if (currentIndex !== periods.length - 1) return { ready: false, text: '' };
+  const previousIndex = activeIndexes[activeIndexes.length - 2];
+  const current = summaries[currentIndex];
+  const previous = summaries[previousIndex];
+  const delta = current.disciplineScore - previous.disciplineScore;
+  const periodName = periodType === 'month' ? '上个有记录的月份' : '上个有记录的周';
+  const direction = delta >= 5 ? '提高' : (delta <= -5 ? '下降' : '基本稳定');
+  let text = direction === '基本稳定'
+    ? '与' + periodName + '相比，按计划率基本稳定。'
+    : '与' + periodName + '相比，按计划率' + direction + '了 ' + Math.abs(delta) + ' 个百分点。';
+
+  const previousReasons = previous.reasonDistribution.reduce((result, item) => { result[item.key] = item; return result; }, {});
+  const currentReasons = current.reasonDistribution.reduce((result, item) => { result[item.key] = item; return result; }, {});
+  const keys = Object.keys(Object.assign({}, previousReasons, currentReasons));
+  const candidates = keys.map(key => {
+    const before = previousReasons[key] ? previousReasons[key].count : 0;
+    const after = currentReasons[key] ? currentReasons[key].count : 0;
+    return {
+      key: key,
+      label: (currentReasons[key] || previousReasons[key]).label,
+      before: before,
+      after: after,
+      delta: after - before
+    };
+  });
+  candidates.sort((a, b) => {
+    if (direction === '提高') return a.delta - b.delta;
+    if (direction === '下降') return b.delta - a.delta;
+    return Math.abs(b.delta) - Math.abs(a.delta);
+  });
+  const clue = candidates[0];
+  if (clue && clue.delta !== 0) {
+    text += '「' + clue.label + '」由 ' + clue.before + ' 次变为 ' + clue.after + ' 次，是一个值得继续观察的线索。';
+  }
+  return { ready: true, text: text };
 }
 
 async function getPeriodReview(openid, payload) {
@@ -645,13 +712,22 @@ async function getPeriodReview(openid, payload) {
     value: summaries[index].disciplineScore,
     eventCount: summaries[index].eventCount
   }));
+  const periodSummaries = definition.periods.map((period, index) => Object.assign({
+    periodId: period.id,
+    periodLabel: period.fullLabel,
+    shortLabel: period.label
+  }, summaries[index]));
   const current = Object.assign({}, summaries[summaries.length - 1]);
+  const changeClue = buildChangeClue(definition.periods, summaries, definition.type);
   const config = await ensureUserConfig(openid);
   current.periodType = definition.type;
   current.periodId = definition.current.id;
   current.periodLabel = definition.current.fullLabel;
   current.trend = trend;
   current.trendInsight = trendInsight(trend);
+  current.periodSummaries = periodSummaries;
+  current.changeClueReady = changeClue.ready;
+  current.changeClue = changeClue.text;
   current.currentFocus = config.current_focus || '';
   current.calculatedAt = new Date();
   const id = metricId(openid, definition.type, definition.current.id);
@@ -670,6 +746,61 @@ async function getPeriodReview(openid, payload) {
     }, current, { calculatedAt: SERVER_DATE() }))
   });
   return ok(current);
+}
+
+async function getPeriodDetail(openid, payload) {
+  const definition = periodDefinition(payload && payload.period_type, new Date());
+  const periodId = string(payload && payload.period_id, 20);
+  const metric = string(payload && payload.metric, 30);
+  const reasonKey = string(payload && payload.reason_key, 50);
+  const period = definition.periods.find(item => item.id === periodId);
+  const allowedMetrics = ['planned', 'impulsive', 'reviewed', 'regret', 'reason'];
+  if (!period || allowedMetrics.indexOf(metric) === -1 || (metric === 'reason' && !reasonKey)) return fail('VALIDATION_ERROR');
+
+  const eventCandidates = await queryAll(COLLECTIONS.EVENTS, {
+    _openid: openid,
+    is_deleted: false,
+    execution_status: 'executed',
+    executed_at: command.gte(period.start)
+  }, 'executed_at');
+  const events = eventCandidates.filter(item => inPeriod(item.executed_at, period));
+  const reflectionCandidates = await queryAll(COLLECTIONS.REFLECTIONS, {
+    _openid: openid,
+    is_deleted: false,
+    reviewed_at: command.gte(period.start)
+  }, 'reviewed_at');
+  const reflections = reflectionCandidates.filter(item => inPeriod(item.reviewed_at || item.created_at, period));
+  const latestByEvent = {};
+  reflections.forEach(item => { latestByEvent[item.trade_event_id] = item; });
+
+  const filtered = events.filter(item => {
+    if (metric === 'planned') return item.plan_status === 'planned';
+    if (metric === 'impulsive') return item.plan_status === 'impulsive';
+    if (metric === 'reviewed') return Boolean(latestByEvent[item._id]);
+    if (metric === 'regret') return latestByEvent[item._id] && latestByEvent[item._id].feeling === 'regret';
+    return item.reason_key === reasonKey;
+  }).sort((a, b) => new Date(b.executed_at || b.created_at) - new Date(a.executed_at || a.created_at));
+
+  return ok({
+    periodId: period.id,
+    periodLabel: period.fullLabel,
+    metric: metric,
+    items: filtered.map(item => {
+      const reflection = latestByEvent[item._id];
+      return {
+        _id: item._id,
+        symbol: item.symbol,
+        action: item.action,
+        action_label: item.action_label || ACTIONS[item.action] || item.action,
+        reason_key: item.reason_key,
+        reason_label: item.reason_label || item.reason_key,
+        plan_status: item.plan_status,
+        plan_label: PLANS[item.plan_status] || '不确定',
+        latest_feeling_label: reflection ? reflection.feeling_label : '',
+        executed_at: item.executed_at || item.created_at
+      };
+    })
+  });
 }
 
 async function migrateUserData(openid) {
@@ -769,6 +900,7 @@ exports.main = async event => {
     if (action === 'savePersonalRule') return await savePersonalRule(openid, payload);
     if (action === 'getWeeklyReview') return await getPeriodReview(openid, { period_type: 'week' });
     if (action === 'getPeriodReview') return await getPeriodReview(openid, payload);
+    if (action === 'getPeriodDetail') return await getPeriodDetail(openid, payload);
     if (action === 'migrateUserData') return await migrateUserData(openid);
     return fail('UNKNOWN_ACTION');
   } catch (error) {

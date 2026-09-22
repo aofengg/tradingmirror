@@ -8,12 +8,14 @@
 .reflection-guide > text { flex: 1; }
 .reflection-guide__close { position: absolute; top: 5rpx; right: 4rpx; width: 54rpx; height: 54rpx; display: flex; align-items: center; justify-content: center; color: var(--color-text-placeholder); font-size: 34rpx; font-weight: 300; }
 .event-card { margin-top: 34rpx; padding: 27rpx; border: 1rpx solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-paper); box-shadow: var(--shadow-card); }
-.event-card__identity { display: flex; align-items: center; gap: 13rpx; }
-.event-card__identity text:first-child { color: var(--color-ink); font-size: 38rpx; font-weight: 740; }
-.event-card__identity text:last-child { padding: 7rpx 13rpx; border-radius: 10rpx; color: var(--color-primary); background: var(--color-primary-mist); font-size: var(--font-size-2xs); font-weight: 650; }
+.event-card__identity { display: flex; align-items: flex-start; gap: 13rpx; }
+.event-card__symbol { min-width: 0; flex: 1; display: -webkit-box; overflow: hidden; color: var(--color-ink); font-size: 38rpx; font-weight: 740; line-height: 1.3; overflow-wrap: anywhere; word-break: break-word; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.event-card__identity .action-tag { margin-top: 4rpx; }
 .event-card__caption { display: block; margin-top: 23rpx; color: var(--color-text-placeholder); font-size: var(--font-size-2xs); }
 .event-card__reason { display: block; margin-top: 8rpx; color: var(--color-ink-soft); font-size: 31rpx; font-weight: 600; line-height: 1.55; }
 .event-card__footer { display: flex; align-items: center; justify-content: space-between; margin-top: 22rpx; padding-top: 19rpx; border-top: 1rpx dashed var(--color-border); }
+.event-card__footer--action { min-height: 76rpx; margin: 22rpx -27rpx -27rpx; padding: 19rpx 27rpx 24rpx; box-sizing: border-box; transition: background .14s ease; }
+.event-card__footer--pressed { background: var(--color-primary-mist); }
 .event-card__meta { display: flex; align-items: center; gap: 15rpx; }
 .event-card__meta > text:first-child { color: var(--color-text-placeholder); font-size: var(--font-size-2xs); }
 .event-card__supplement-entry { min-height: 52rpx; display: flex; align-items: center; color: var(--color-primary); font-size: var(--font-size-2xs); font-weight: 650; }

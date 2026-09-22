@@ -22,12 +22,16 @@
       </view>
     </view>
     <view class="event-card">
-      <view class="event-card__identity"><text>{{event.symbol}}</text><text>{{event.action_label}}</text></view>
+      <view class="event-card__identity"><text class="event-card__symbol">{{event.symbol}}</text><text class="action-tag action-tag--{{event.action}}">{{event.action_label}}</text></view>
       <text class="event-card__caption">当时最主要的原因</text>
       <text class="event-card__reason">“{{event.reason_label}}”</text>
-      <view class="event-card__footer">
+      <view wx:if="{{!event.optional_note && !event.attachments.length}}" class="event-card__footer event-card__footer--action" hover-class="event-card__footer--pressed" hover-stay-time="80" role="button" aria-label="补充这次操作" bindtap="openEventSupplementEditor">
         <text class="pill {{event.plan_status === 'impulsive' ? 'pill--warm' : ''}}">{{event.plan_label}}</text>
-        <view class="event-card__meta"><text>{{event.created_label}}</text><text wx:if="{{!event.optional_note && !event.attachments.length}}" class="event-card__supplement-entry" catchtap="openEventSupplementEditor">补充 ›</text></view>
+        <view class="event-card__meta"><text>{{event.created_label}}</text><text class="event-card__supplement-entry">补充 ›</text></view>
+      </view>
+      <view wx:else class="event-card__footer">
+        <text class="pill {{event.plan_status === 'impulsive' ? 'pill--warm' : ''}}">{{event.plan_label}}</text>
+        <view class="event-card__meta"><text>{{event.created_label}}</text></view>
       </view>
       <view wx:if="{{event.optional_note || event.attachments.length}}" class="event-supplement">
         <view class="event-supplement__head">
@@ -42,6 +46,7 @@
         </view>
       </view>
     </view>
+    <related-history id="relatedHistory" source="{{event}}" />
     <optional-supplement id="eventSupplementEditor" hide-trigger entity-type="trade_event" entity-id="{{event._id}}" note="{{event.optional_note}}" attachments="{{event.attachments}}" trigger-text="补充这次操作" sheet-title="为这次操作多留一点" placeholder="例如当时看到的信息、仓位顾虑……" bind:saved="onEventSupplementSaved" />
 
     <view wx:if="{{reflections.length}}" class="history-card">

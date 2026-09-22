@@ -67,8 +67,9 @@
 .complete-eyebrow { margin-top: 27rpx; color: var(--color-primary); font-size: var(--font-size-xs); font-weight: 650; letter-spacing: 2rpx; }
 .complete-title { margin-top: 8rpx; color: var(--color-ink); font-size: 45rpx; font-weight: 710; }
 .receipt-card { width: 100%; margin-top: 32rpx; padding: 27rpx; border: 1rpx solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-paper); box-shadow: var(--shadow-card); text-align: left; }
-.receipt-card__top { display: flex; align-items: center; justify-content: space-between; }
-.receipt-card__top text:first-child { font-size: 37rpx; font-weight: 730; }.receipt-card__top text:last-child { padding: 7rpx 14rpx; border-radius: 11rpx; color: var(--color-primary); background: var(--color-primary-mist); font-size: var(--font-size-xs); font-weight: 650; }
+.receipt-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16rpx; }
+.receipt-card__symbol { min-width: 0; flex: 1; display: -webkit-box; overflow: hidden; font-size: 37rpx; font-weight: 730; line-height: 1.3; overflow-wrap: anywhere; word-break: break-word; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.receipt-card__top .action-tag { margin-top: 3rpx; }
 .receipt-card__line { height: 1rpx; margin: 22rpx 0; background: repeating-linear-gradient(90deg, var(--color-border) 0, var(--color-border) 12rpx, transparent 12rpx, transparent 22rpx); }
 .receipt-card__label { color: var(--color-text-placeholder); font-size: var(--font-size-2xs); }
 .receipt-card__reason { display: block; margin-top: 10rpx; color: var(--color-ink-soft); font-size: 31rpx; font-weight: 600; line-height: 1.55; }

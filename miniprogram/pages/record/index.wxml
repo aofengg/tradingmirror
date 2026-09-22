@@ -71,12 +71,13 @@
     <text class="complete-eyebrow">已留下这次决定</text>
     <text class="complete-title">记录完成</text>
     <view class="receipt-card">
-      <view class="receipt-card__top"><text>{{createdEvent.symbol}}</text><text>{{createdEvent.action_label}}</text></view>
+      <view class="receipt-card__top"><text class="receipt-card__symbol">{{createdEvent.symbol}}</text><text class="action-tag action-tag--{{createdEvent.action}}">{{createdEvent.action_label}}</text></view>
       <view class="receipt-card__line"></view>
       <text class="receipt-card__label">当时最主要的原因</text>
       <text class="receipt-card__reason">“{{createdEvent.reason_label}}”</text>
       <view class="receipt-card__footer"><text class="pill {{planStatus === 'impulsive' ? 'pill--warm' : ''}}">{{planLabel}}</text><text class="receipt-card__correct" bindtap="correctPlanStatus">归类不准？更正</text></view>
     </view>
+    <related-history id="relatedHistory" wx:if="{{stage === 'before'}}" source="{{createdEvent}}" preview />
     <optional-supplement entity-type="trade_event" entity-id="{{createdEvent._id}}" note="{{createdEvent.optional_note}}" attachments="{{createdEvent.attachments}}" trigger-text="补充这次操作" sheet-title="为这次操作多留一点" placeholder="例如当时看到的信息、仓位顾虑……" bind:saved="onSupplementSaved" />
     <view wx:if="{{showCompletionGuide}}" class="guide-tip guide-tip--complete">
       <view class="guide-tip__mark">2</view><text>下一步不是判断赚亏。等首页出现“可以回看了”，再留下那时的真实感受。</text><view class="guide-tip__close" bindtap="dismissCompletionGuide">×</view>

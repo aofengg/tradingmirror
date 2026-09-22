@@ -1,0 +1,25 @@
+const assert = require('assert');
+let definition;
+global.Component = value => { definition = value; };
+require('../miniprogram/components/trend-chart/index');
+const points = [{periodId:'empty',value:null},{periodId:'zero',value:0},{periodId:'full',value:100}];
+let selected;
+const chart = {properties:{interactive:true},_chartPoints:points,_chartRect:{left:100,width:216},triggerEvent:(name,point)=>{selected=point.periodId;}};
+Object.assign(chart,definition.methods);
+chart.selectPoint({currentTarget:{dataset:{index:0}}});assert.equal(selected,undefined);
+chart.selectPoint({currentTarget:{dataset:{index:1}}});assert.equal(selected,'zero');
+chart.handleTap({detail:{x:308},changedTouches:[{clientX:208}]});assert.equal(selected,'zero','touch coordinates must take precedence over detail coordinates');
+chart.handleTap({detail:{x:308}});assert.equal(selected,'full','page coordinates must subtract canvas left');
+chart.properties.interactive=false;chart.selectPoint({currentTarget:{dataset:{index:1}}});assert.equal(selected,'full');
+console.log('trend interaction: empty, zero, selected period, offset coordinates and compact guard passed');
+// Native canvas must never draw behind an open sheet, including a queued query.
+let queryCalls = 0, rectCallback;
+chart.properties.suspended = true;
+chart.createSelectorQuery = () => { queryCalls++; return {select:()=>({boundingClientRect:fn=>{rectCallback=fn;return {exec:()=>{}};}})}; };
+chart._draw(points);assert.equal(queryCalls,0);
+chart.properties.suspended=false;chart._draw(points);assert.equal(queryCalls,1);
+chart.properties.suspended=true;
+global.wx={createCanvasContext:()=>{throw Error('Drawing after suspension');}};
+rectCallback({width:216,height:100});
+chart.properties.suspended=false;chart._detached=true;chart._draw(points);assert.equal(queryCalls,1);
+console.log('canvas suspension and stale draw guards passed');

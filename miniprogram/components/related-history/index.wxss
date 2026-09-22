@@ -1,0 +1,28 @@
+ :host { display: block; width: 100%; }
+.related { width: 100%; text-align: left; }
+.related-link { min-height: 88rpx; display: flex; align-items: center; justify-content: space-between; gap: 20rpx; color: #286653; font-size: 25rpx; }
+.related-arrow { flex: none; font-size: 34rpx; color: #73837a; }
+.related-pressed { opacity: .6; }
+.related-preview { margin-top: 24rpx; padding: 28rpx; border: 1rpx solid #dbe4dc; border-radius: 24rpx; background: #f1f5ef; }
+.related-kicker { display: block; color: #537364; font-size: 22rpx; }
+.related-title { display: block; margin-top: 10rpx; color: #22382d; font-size: 30rpx; font-weight: 600; line-height: 1.45; }
+.related-description { display: block; margin-top: 10rpx; color: #6f7d74; font-size: 23rpx; line-height: 1.65; }
+.related-mini { margin-top: 22rpx; padding-top: 20rpx; border-top: 1rpx solid #dce3db; }
+.related-row { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
+.related-symbol { min-width: 0; color: #263b30; font-size: 28rpx; font-weight: 600; overflow-wrap: anywhere; word-break: break-all; }
+.related-date { display: block; margin-top: 4rpx; color: #839086; font-size: 21rpx; }
+.related-note { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 12rpx; font-size: 25rpx; line-height: 1.65; color: #516157; white-space: pre-wrap; word-break: break-all; }
+.related-note--full { display: block; }
+.related-feeling { display: block; margin-top: 10rpx; color: #596f60; font-size: 23rpx; line-height: 1.6; }
+.related-overlay { position: fixed; inset: 0; z-index: 150; display: flex; align-items: flex-end; background: rgba(21,31,27,.36); text-align: left; }
+.related-sheet { width: 100%; box-sizing: border-box; padding: 16rpx 30rpx calc(env(safe-area-inset-bottom) + 24rpx); border-radius: 32rpx 32rpx 0 0; background: #fffef9; }
+.related-handle { width: 64rpx; height: 7rpx; margin: 0 auto 14rpx; border-radius: 8rpx; background: #d8dfd8; }
+.related-sheet-title { color: #22382d; font-size: 34rpx; font-weight: 600; }
+.related-close { width: 88rpx; height: 88rpx; display: flex; align-items: center; justify-content: center; color: #637367; font-size: 42rpx; }
+.related-scroll { height: 53vh; margin-top: 16rpx; }
+.related-item { padding: 24rpx 0; border-top: 1rpx solid #e2e6dd; }
+.related-detail { display: block; margin-top: 14rpx; font-size: 22rpx; color: #286653; }
+.related-state { display: block; padding: 28rpx 0; min-height: 50rpx; color: #78877b; text-align: center; font-size: 24rpx; }
+
+.related-link--compact { min-height: 88rpx; justify-content: flex-end; gap: 10rpx; padding-left: 18rpx; font-size: 23rpx; white-space: nowrap; }
+.related-link--compact .related-arrow { color: #537364; font-size: 29rpx; }

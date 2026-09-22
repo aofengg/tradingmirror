@@ -1,7 +1,16 @@
 <view class="trend-chart">
-  <canvas canvas-id="behaviorTrendCanvas" class="trend-chart__canvas {{compact ? 'trend-chart__canvas--compact' : ''}}"></canvas>
+  <view class="trend-chart__plot {{compact ? 'trend-chart__plot--compact' : ''}}">
+  <view wx:if="{{!compact}}" class="trend-chart__axis"><text class="trend-chart__axis-label">100%</text><text class="trend-chart__axis-label">50%</text><text class="trend-chart__axis-label">0%</text></view>
+  <canvas wx:if="{{!suspended}}" canvas-id="behaviorTrendCanvas" class="trend-chart__canvas {{compact ? 'trend-chart__canvas--compact' : ''}} {{interactive ? 'trend-chart__canvas--interactive' : ''}}" bindtap="handleTap"></canvas>
+  <view wx:else class="trend-chart__canvas {{compact ? 'trend-chart__canvas--compact' : ''}}"></view>
+  </view>
   <view wx:if="{{!compact}}" class="trend-chart__labels">
     <text>{{firstLabel}}</text><text>{{middleLabel}}</text><text>{{lastLabel}}</text>
+  </view>
+  <view wx:if="{{interactive && !compact}}" class="trend-chart__periods">
+    <view wx:for="{{points}}" wx:key="periodId" class="trend-chart__period {{item.periodId === selectedPeriodId ? 'trend-chart__period--selected' : ''}} {{item.value === null ? 'trend-chart__period--empty' : ''}}" data-index="{{index}}" bindtap="selectPoint" role="button" aria-label="{{item.label + '，' + (item.value === null ? '无操作记录' : '计划执行率' + item.value + '%')}}">
+      <text>{{item.label}}</text><text>{{item.value === null ? '无记录' : item.value + '%'}}</text>
+    </view>
   </view>
   <view wx:if="{{!hasData && !compact}}" class="trend-chart__empty">有两期记录后，趋势会从这里长出来</view>
 </view>

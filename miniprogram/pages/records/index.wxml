@@ -42,12 +42,14 @@
         <view class="record-swipe__content" style="transform: translateX({{item.swipe_offset || 0}}px);">
           <view class="card record-card record-card--{{item.plan_status}}" data-id="{{item._id}}" data-status="{{item.execution_status}}" bindtap="openReflection">
             <view class="record-card__rail"></view>
-            <view class="record-card__head">
-              <view class="record-card__identity">
+            <view class="record-card__head record-card__head--{{item.symbol_layout}}">
+              <view class="record-card__identity record-card__identity--{{item.symbol_layout}}">
                 <text class="record-card__symbol">{{item.symbol}}</text>
-                <text class="record-card__action">{{item.action_label}}</text>
-                <view class="record-card__execution record-card__execution--{{item.execution_status}}" data-id="{{item._id}}" data-status="{{item.execution_status}}" data-reflection-count="{{item.reflection_count}}" catchtap="openStatusMenu">
-                  <text>{{item.execution_label}}</text><text class="record-card__execution-arrow">⌄</text>
+                <view class="record-card__badges">
+                  <text class="action-tag action-tag--{{item.action}}">{{item.action_label}}</text>
+                  <view class="record-card__execution record-card__execution--{{item.execution_status}}" data-id="{{item._id}}" data-status="{{item.execution_status}}" data-reflection-count="{{item.reflection_count}}" catchtap="openStatusMenu">
+                    <text>{{item.execution_label}}</text><text class="record-card__execution-arrow">⌄</text>
+                  </view>
                 </view>
               </view>
               <view class="record-card__tools">

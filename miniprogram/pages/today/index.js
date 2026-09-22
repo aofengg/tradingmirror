@@ -9,6 +9,11 @@ Page({
     hasLoaded: false,
     loadError: false,
     pending: null,
+    pendingReflections: [],
+    pendingReflectionIndex: 0,
+    pendingReflectionOffset: 0,
+    pendingReflectionCount: 0,
+    reflectionSwitching: false,
     pendingIntent: null,
     pendingIntents: [],
     pendingIntentIndex: 0,
@@ -64,7 +69,7 @@ Page({
     return getApp().waitForLogin().then(function () {
       return Promise.all([
         tradeService.getPendingIntentQueue(),
-        tradeService.getPendingReflection(),
+        tradeService.getPendingReflectionQueue(),
         tradeService.getRecentEvents(20),
         userService.getConfig()
       ]);
@@ -82,7 +87,12 @@ Page({
         intentLeaving: false,
         intentSwitching: false,
         intentAnimation: '',
-        pending: results[1].data,
+        pending: results[1].data.current,
+        pendingReflections: results[1].data.items,
+        pendingReflectionIndex: 0,
+        pendingReflectionOffset: 0,
+        pendingReflectionCount: results[1].data.count,
+        reflectionSwitching: false,
         recentCount: results[2].data.length,
         currentFocus: results[3].success ? results[3].data.current_focus : null,
         showWelcome: showWelcome
@@ -165,7 +175,36 @@ Page({
     }, 380);
   },
 
+  showNextReflection: function () {
+    var self = this;
+    if (self.data.reflectionSwitching || self.data.pendingReflectionCount < 2) return;
+    var next = self.data.pendingReflectionIndex + 1;
+    if (next < self.data.pendingReflections.length) {
+      self.setData({ pendingReflectionIndex: next, pending: self.data.pendingReflections[next] });
+      return;
+    }
+    var offset = self.data.pendingReflectionOffset + self.data.pendingReflections.length;
+    if (offset >= self.data.pendingReflectionCount) offset = 0;
+    self.setData({ reflectionSwitching: true });
+    tradeService.getPendingReflectionQueue(offset).then(function (res) {
+      if (!res.success) throw new Error('LOAD_FAILED');
+      if (!res.data.current) { self._loadPage(); return; }
+      self.setData({ pending: res.data.current, pendingReflections: res.data.items, pendingReflectionIndex: 0,
+        pendingReflectionOffset: offset, pendingReflectionCount: res.data.count, reflectionSwitching: false });
+    }).catch(function () {
+      self.setData({ reflectionSwitching: false });
+      wx.showToast({ title: '暂时没能切换，请重试', icon: 'none' });
+    });
+  },
+
+  openReflectionRecords: function () {
+    getApp().globalData._recordsInitialFilter = 'pending';
+    getApp().globalData._recordsInitialTodoFilter = 'review';
+    wx.switchTab({ url: '/pages/records/index' });
+  },
+
   openPendingRecords: function () {
+    getApp().globalData._recordsInitialTodoFilter = 'confirm';
     getApp().globalData._recordsInitialFilter = 'pending';
     wx.switchTab({ url: '/pages/records/index' });
   },

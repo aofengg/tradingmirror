@@ -1,5 +1,5 @@
 <view class="state {{compact ? 'state--compact' : ''}}">
-  <view wx:if="{{type === 'loading'}}" class="state__loader"><view></view><view></view><view></view></view>
+  <view wx:if="{{type === 'loading'}}" class="state__loader"><view class="state__dot"></view><view class="state__dot state__dot--second"></view><view class="state__dot state__dot--third"></view></view>
   <view wx:else class="state__illustration state__illustration--{{type}}">
     <view class="state__line state__line--one"></view>
     <view class="state__line state__line--two"></view>

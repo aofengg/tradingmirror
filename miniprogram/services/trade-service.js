@@ -29,6 +29,15 @@ function buildReasonLabels() {
 
 var REASON_LABELS = buildReasonLabels();
 
+function symbolLayout(value) {
+  var symbol = String(value || '');
+  var visualUnits = 0;
+  for (var i = 0; i < symbol.length; i++) {
+    visualUnits += symbol.charCodeAt(i) > 255 ? 2 : 1;
+  }
+  return visualUnits > 10 ? 'long' : 'compact';
+}
+
 function createTradeEvent(data) {
   var asset = assetUtil.fromSymbol(data.symbol);
   var symbol = asset.symbol;
@@ -130,6 +139,7 @@ function decorateEvent(item) {
     optional_note: item.optional_note || '',
     attachments: item.attachments || [],
     action_label: item.action_label || ACTION_LABELS[item.action] || item.action,
+    symbol_layout: symbolLayout(item.symbol),
     reason_label: item.reason_label || REASON_LABELS[item.reason_key] || item.reason_key,
     plan_label: PLAN_LABELS[item.plan_status] || '不确定',
     created_label: dateUtil.formatDateTime(item.created_at),
@@ -166,10 +176,23 @@ function getPendingReflection() {
   var cmd = db.getCommand();
   return tradeEventsRepo.getList({
     where: { execution_status: 'executed', reflection_count: 0, review_due_at: cmd.lte(new Date()) },
-    pageSize: 1
+    pageSize: 1, orderBy: 'review_due_at', order: 'asc'
   }).then(function (result) {
     if (!result.success) return result;
     return { success: true, data: result.data.list.length ? decorateEvent(result.data.list[0]) : null, error: null };
+  });
+}
+
+function getPendingReflectionQueue(offset) {
+  var where = { execution_status: 'executed', reflection_count: 0, review_due_at: db.getCommand().lte(new Date()) };
+  return Promise.all([
+    tradeEventsRepo.getList({ where: where, pageSize: 20, offset: offset || 0, orderBy: 'review_due_at', order: 'asc' }),
+    tradeEventsRepo.count({ where: where })
+  ]).then(function (results) {
+    if (!results[0].success) return results[0];
+    if (!results[1].success) return results[1];
+    var items = results[0].data.list.map(decorateEvent);
+    return { success: true, data: { items: items, current: items[0] || null, count: results[1].data, offset: offset || 0 } };
   });
 }
 
@@ -224,6 +247,23 @@ function getPeriodReview(periodType) {
   return cloudApi.call('getPeriodReview', { period_type: periodType === 'month' ? 'month' : 'week' });
 }
 
+function getPeriodDetail(periodType, periodId, metric, reasonKey) {
+  return cloudApi.call('getPeriodDetail', {
+    period_type: periodType === 'month' ? 'month' : 'week',
+    period_id: periodId,
+    metric: metric,
+    reason_key: reasonKey || ''
+  }).then(function (res) {
+    if (!res.success) return res;
+    var items = (res.data.items || []).map(function (item) {
+      return Object.assign({}, item, {
+        created_label: dateUtil.formatDateTime(item.executed_at)
+      });
+    });
+    return { success: true, data: Object.assign({}, res.data, { items: items }), error: null };
+  });
+}
+
 function saveWeeklyFocus(key) {
   var label = FOCUS_LABELS[key];
   if (!label) return Promise.resolve({ success: false, data: null, error: 'VALIDATION_ERROR' });
@@ -244,10 +284,12 @@ module.exports = {
   getEventPage: getEventPage,
   getEvent: getEvent,
   getPendingReflection: getPendingReflection,
+  getPendingReflectionQueue: getPendingReflectionQueue,
   getPendingIntentQueue: getPendingIntentQueue,
   getTodoOverview: getTodoOverview,
   getWeeklyReview: getWeeklyReview,
   getPeriodReview: getPeriodReview,
+  getPeriodDetail: getPeriodDetail,
   saveWeeklyFocus: saveWeeklyFocus,
   deleteTradeEvent: deleteTradeEvent,
   labels: {

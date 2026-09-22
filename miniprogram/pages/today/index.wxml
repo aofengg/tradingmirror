@@ -53,7 +53,10 @@
           </view>
           <text class="task-card__eyebrow">操作前留下的想法</text>
           <text class="task-card__title">{{pendingIntent.symbol}} · {{pendingIntent.action_label}}</text>
-          <text class="task-card__reason">“{{pendingIntent.reason_label}}”</text>
+          <view class="task-card__reason-row">
+            <text class="task-card__reason task-card__reason--inline">“{{pendingIntent.reason_label}}”</text>
+            <view class="task-card__history"><related-history id="relatedHistory" source="{{pendingIntent}}" compact /></view>
+          </view>
           <view class="task-card__question-row">
             <text class="task-card__question">后来真的执行了吗？</text>
             <text wx:if="{{pendingIntentCount > 1}}" class="task-card__next" catchtap="showNextIntent">换一条 ›</text>
@@ -65,16 +68,25 @@
         </view>
       </view>
 
-      <view wx:if="{{pending}}" class="card task-card task-card--reflection">
+      <view wx:if="{{pending}}" class="intent-stack {{pendingReflectionCount > 1 ? 'intent-stack--multiple' : ''}}">
+        <view wx:if="{{pendingReflectionCount > 1}}" class="intent-stack__layer intent-stack__layer--back"></view>
+        <view wx:if="{{pendingReflectionCount > 1}}" class="intent-stack__layer"></view>
+        <view class="card task-card task-card--reflection">
         <view class="task-card__rail"></view>
         <view class="task-card__head">
           <text class="pill pill--warm">可以回看了</text>
-          <text class="task-card__time">{{pending.relative_label}}</text>
+          <view wx:if="{{pendingReflectionCount > 1}}" class="task-card__count" catchtap="openReflectionRecords"><text>共 {{pendingReflectionCount}} 条</text><text>›</text></view>
+          <text wx:else class="task-card__time">{{pending.relative_label}}</text>
         </view>
         <text class="task-card__eyebrow">当时因为</text>
         <text class="task-card__title">{{pending.symbol}} · {{pending.action_label}}</text>
         <text class="task-card__reason">“{{pending.reason_label}}”</text>
+        <view wx:if="{{pendingReflectionCount > 1}}" class="task-card__question-row">
+          <text class="task-card__time">{{pending.relative_label}}</text>
+          <text class="task-card__next" catchtap="showNextReflection">{{reflectionSwitching ? '加载中…' : '换一条 ›'}}</text>
+        </view>
         <view class="primary-button task-card__review" hover-class="button-pressed" bindtap="openReflection">看看现在的感受</view>
+        </view>
       </view>
 
       <view wx:if="{{!pendingIntent && !pending}}" class="card calm-card">

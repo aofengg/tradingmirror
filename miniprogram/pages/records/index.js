@@ -48,7 +48,9 @@ Page({
     }
     var requestedFilter = getApp().globalData._recordsInitialFilter;
     if (requestedFilter) {
-      this.setData({ filter: requestedFilter });
+      var requestedTodo = getApp().globalData._recordsInitialTodoFilter || 'all';
+      this.setData({ filter: requestedFilter, todoFilter: requestedTodo });
+      getApp().globalData._recordsInitialTodoFilter = '';
       getApp().globalData._recordsInitialFilter = '';
       if (this.data.hasLoaded) this._applyFilter();
     }

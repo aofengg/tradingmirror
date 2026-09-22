@@ -34,6 +34,25 @@
 - `_openid` 升序 + `is_deleted` 升序 + `execution_status` 升序 + `review_due_at` 升序 + `created_at` 降序；
 - `_openid` 升序 + `is_deleted` 升序 + `execution_status` 升序 + `executed_at` 升序。
 
+### 相关历史与首页待回看（2026-09-18）
+
+在 `trade_events` 新建以下两个**非唯一**组合索引，字段顺序不能打乱：
+
+| 索引名 | 字段与方向（从左到右） |
+| --- | --- |
+| `related_history_v1` | `_openid` 升序、`is_deleted` 升序、`action` 升序、`reason_key` 升序、`execution_status` 升序、`executed_at` 降序 |
+| `due_reflection_v1` | `_openid` 升序、`is_deleted` 升序、`execution_status` 升序、`reflection_count` 升序、`review_due_at` 升序 |
+
+在微信开发者工具 → 云开发 → 数据库 → `trade_events` → 索引管理创建，等待状态为可用。本文档只描述部署配置，不代表云端索引已经创建。
+
+- 相关历史：等值字段在前，最后是执行时间范围与降序排序。正常记录已由执行状态或严格时间上界排除自身，不再添加多余的 `_id !=`；缺失执行时间或时间异常的旧记录仍保留排除自身的防护，可能继续触发 `neq` 提示。
+- 待回看：列表统一按 `review_due_at` 升序，最早到期的先显示；计数使用同一筛选条件，共用该索引。不要照旧日志创建按 `created_at` 排序的索引。
+- 不要使用旧告警里包含两次 `executed_at` 的快速创建链接。先更新代码，再查看新的查询日志。
+- 暂不删除现有 `C`、`_openid_1` 等索引，其他列表仍可能使用它们。
+- 验收：重新编译后打开首页、历史弹层及下一页，确认数量、顺序和排除自身不变，并检查索引告警；索引生效前仍可能提示缺少索引。
+
+参考：[CloudBase 索引管理](https://docs.cloudbase.net/database/data-index)。
+
 ### reflection_snapshots
 
 - `_openid` 升序 + `is_deleted` 升序 + `trade_event_id` 升序 + `created_at` 降序；

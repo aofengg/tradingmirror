@@ -1,0 +1,24 @@
+var assert=require('assert');
+var repo=require('../miniprogram/repository/trade-events-repo');
+var db=require('../miniprogram/utils/db');
+var service=require('../miniprogram/services/trade-service');
+db.getCommand=()=>({lte:d=>({lte:d})});
+var seen=[];
+repo.getList=o=>{seen.push(o);return Promise.resolve({success:true,data:{list:Array.from({length:o.offset?1:20},(_,i)=>({_id:'r'+((o.offset||0)+i),symbol:'T',created_at:new Date(),executed_at:new Date(),action:'buy'}))}})};
+repo.count=()=>Promise.resolve({success:true,data:21});
+(async()=>{
+ var result=await service.getPendingReflectionQueue(20);assert.equal(result.data.count,21);assert.equal(result.data.items.length,1);assert.equal(seen[0].offset,20);assert.equal(seen[0].orderBy,'review_due_at');assert.equal(seen[0].order,'asc');assert.equal(seen[0].where.execution_status,'executed');assert.equal(seen[0].where.reflection_count,0);assert(seen[0].where.review_due_at.lte instanceof Date);
+ var def;global.Page=x=>def=x;var app={globalData:{}};global.getApp=()=>app;var nav;global.wx={switchTab:o=>nav=o.url,showToast:()=>{}};
+ require('../miniprogram/pages/today/index');
+ var c={data:Object.assign({},def.data),setData:function(v){Object.assign(this.data,v)}};Object.keys(def).filter(k=>typeof def[k]==='function').forEach(k=>c[k]=def[k]);
+ c.setData({pendingReflections:[{_id:'a'},{_id:'b'}],pending:{_id:'a'},pendingReflectionCount:2});c.showNextReflection();assert.equal(c.data.pending._id,'b');
+ service.getPendingReflectionQueue=offset=>Promise.resolve({success:true,data:{current:{_id:'a'},items:[{_id:'a'},{_id:'b'}],count:2}});
+ c.showNextReflection();await new Promise(r=>setImmediate(r));assert.equal(c.data.pending._id,'a');assert.equal(c.data.pendingReflectionIndex,0);
+ c.setData({pendingReflectionCount:1});c.showNextReflection();assert.equal(c.data.pending._id,'a');
+ c.setData({pendingReflectionCount:21,pendingReflectionIndex:19,pendingReflectionOffset:0,pendingReflections:Array.from({length:20},(_,i)=>({_id:'r'+i}))});
+ service.getPendingReflectionQueue=offset=>{assert.equal(offset,20);return Promise.resolve({success:true,data:{current:{_id:'last'},items:[{_id:'last'}],count:21}})};
+ c.showNextReflection();await new Promise(r=>setImmediate(r));assert.equal(c.data.pending._id,'last');assert.equal(c.data.pendingReflectionOffset,20);
+ service.getPendingReflectionQueue=()=>Promise.resolve({success:false});c.showNextReflection();await new Promise(r=>setImmediate(r));assert.equal(c.data.reflectionSwitching,false);assert.equal(c.data.pending._id,'last');
+ c.openReflectionRecords();assert.equal(app.globalData._recordsInitialTodoFilter,'review');assert.equal(nav,'/pages/records/index');c.openPendingRecords();assert.equal(app.globalData._recordsInitialTodoFilter,'confirm');
+ console.log('home queue tests passed: eligibility, paging, switch, wrap, single, failure and list filters');
+})().catch(e=>{console.error(e);process.exitCode=1});

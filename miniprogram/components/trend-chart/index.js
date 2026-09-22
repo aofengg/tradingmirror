@@ -1,10 +1,14 @@
 Component({
   properties: {
     pointsJson: { type: String, value: '[]' },
-    compact: { type: Boolean, value: false }
+    compact: { type: Boolean, value: false },
+    suspended: { type: Boolean, value: false },
+    interactive: { type: Boolean, value: false },
+    selectedPeriodId: { type: String, value: '' }
   },
 
   data: {
+    points: [],
     firstLabel: '',
     middleLabel: '',
     lastLabel: '',
@@ -12,11 +16,12 @@ Component({
   },
 
   lifetimes: {
-    ready: function () { this._refresh(); }
+    ready: function () { this._detached = false; this._refresh(); },
+    detached: function () { this._detached = true; clearTimeout(this._drawTimer); }
   },
 
   observers: {
-    'pointsJson, compact': function () { this._refresh(); }
+    'pointsJson, compact, selectedPeriodId, suspended': function () { this._refresh(); }
   },
 
   methods: {
@@ -24,20 +29,26 @@ Component({
       var self = this;
       var points = [];
       try { points = JSON.parse(self.properties.pointsJson || '[]'); } catch (error) { points = []; }
+      self._chartPoints = points;
       self.setData({
+        points: points,
         firstLabel: points.length ? points[0].label : '',
         middleLabel: points.length ? points[Math.floor((points.length - 1) / 2)].label : '',
         lastLabel: points.length ? points[points.length - 1].label : '',
         hasData: points.some(function (item) { return item.value !== null && typeof item.value !== 'undefined'; })
       });
-      if (!self.createSelectorQuery) return;
-      setTimeout(function () { self._draw(points); }, 30);
+      clearTimeout(self._drawTimer);
+      self._chartRect = null;
+      if (self.properties.suspended || self._detached || !self.createSelectorQuery) return;
+      self._drawTimer = setTimeout(function () { self._draw(points); }, 30);
     },
 
     _draw: function (points) {
       var self = this;
+      if (self.properties.suspended || self._detached) return;
       self.createSelectorQuery().select('.trend-chart__canvas').boundingClientRect(function (rect) {
-        if (!rect || !rect.width) return;
+        if (self.properties.suspended || self._detached || !rect || !rect.width) return;
+        self._chartRect = rect;
         var ctx = wx.createCanvasContext('behaviorTrendCanvas', self);
         var width = rect.width;
         var height = rect.height;
@@ -78,12 +89,40 @@ Component({
         }
         valid.forEach(function (point, index) {
           var latest = index === valid.length - 1;
+          var selected = points[point.index] && points[point.index].periodId === self.properties.selectedPeriodId;
+          if (selected) {
+            ctx.beginPath(); ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
+            ctx.setFillStyle('rgba(45, 128, 101, .14)'); ctx.fill();
+          }
           ctx.beginPath(); ctx.arc(point.x, point.y, latest ? 4.5 : 3.2, 0, Math.PI * 2);
-          ctx.setFillStyle(latest ? '#1F6855' : '#77BBA4'); ctx.fill();
+          ctx.setFillStyle(selected || latest ? '#1F6855' : '#77BBA4'); ctx.fill();
           ctx.setStrokeStyle('#FFFEFA'); ctx.setLineWidth(2); ctx.stroke();
         });
+        self._validPoints = valid;
         ctx.draw();
       }).exec();
+    },
+
+    selectPoint: function (event) {
+      var point = (this._chartPoints || [])[Number(event.currentTarget.dataset.index)];
+      if (!this.properties.interactive || !point || point.value === null || typeof point.value === 'undefined') return;
+      this.triggerEvent('select', point);
+    },
+
+    handleTap: function (event) {
+      if (!this.properties.interactive || !this._chartPoints || !this._chartPoints.length || !this._chartRect) return;
+      var detailX = event.detail && typeof event.detail.x === 'number' ? event.detail.x : null;
+      var touch = event.changedTouches && event.changedTouches[0];
+      var clientX = touch && typeof touch.clientX === 'number' ? touch.clientX : null;
+      var x = clientX !== null ? clientX - this._chartRect.left : (touch && typeof touch.x === 'number' ? touch.x : (detailX !== null ? detailX - this._chartRect.left : null));
+      if (x === null) return;
+      var left = 8;
+      var plotWidth = Math.max(1, this._chartRect.width - 16);
+      var ratio = Math.max(0, Math.min(1, (x - left) / plotWidth));
+      var index = Math.round(ratio * (this._chartPoints.length - 1));
+      var point = this._chartPoints[index];
+      if (!point || point.value === null || typeof point.value === 'undefined') return;
+      this.triggerEvent('select', point);
     }
   }
 });

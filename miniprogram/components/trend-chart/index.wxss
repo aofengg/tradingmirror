@@ -1,5 +1,17 @@
 .trend-chart { position: relative; width: 100%; }
 .trend-chart__canvas { width: 100%; height: 210rpx; }
+.trend-chart__canvas--interactive { cursor: pointer; }
 .trend-chart__canvas--compact { height: 82rpx; }
 .trend-chart__labels { display: flex; justify-content: space-between; margin-top: 2rpx; color: var(--color-text-placeholder); font-size: 19rpx; }
 .trend-chart__empty { position: absolute; top: 82rpx; left: 0; right: 0; color: var(--color-text-placeholder); font-size: var(--font-size-2xs); text-align: center; }
+
+.trend-chart__plot { position: relative; padding-left: 66rpx; }
+.trend-chart__plot--compact { padding-left: 0; }
+.trend-chart__axis { position: absolute; left: 0; top: 14px; bottom: 13px; width: 58rpx; display: flex; flex-direction: column; justify-content: space-between; color: #75847d; font-size: 20rpx; text-align: right; }
+.trend-chart__axis-label { line-height: 1; transform: translateY(-50%); }
+.trend-chart__axis-label:last-child { transform: translateY(50%); }
+.trend-chart__labels { margin-left: 66rpx; }
+.trend-chart__periods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10rpx; margin-top: 24rpx; }
+.trend-chart__period { min-height: 88rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8rpx; border: 2rpx solid transparent; border-radius: 16rpx; background: #f4f5f1; color: #63736b; font-size: 21rpx; }
+.trend-chart__period--selected { border-color: #2d8065; background: #e6f1eb; color: #1f6855; font-weight: 600; }
+.trend-chart__period--empty { color: #8d9791; background: transparent; }

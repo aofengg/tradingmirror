@@ -1,8 +1,6 @@
 {
   "navigationBarTitleText": "记录",
   "enablePullDownRefresh": true,
-  "enableShareAppMessage": true,
-  "enableShareTimeline": true,
   "usingComponents": {
     "state-view": "/components/state-view/index"
   }

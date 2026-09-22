@@ -37,6 +37,8 @@ assert.strictEqual(pendingFunction.indexOf('reflectionsRepo.getList'), -1, 'pend
 assert.strictEqual(reflectionPage.indexOf('<optional-supplement entity-type="trade_event"'), -1, 'reflection flow should not prompt for an empty event supplement');
 assert.ok(reflectionPage.indexOf('event.optional_note || event.attachments.length') !== -1, 'existing event supplement should remain available as context');
 assert.ok(reflectionPage.indexOf('catchtap="openEventSupplementEditor"') !== -1, 'operation context should retain a lightweight supplement entry');
+assert.ok(reflectionPage.indexOf('event-card__footer--action') !== -1, 'the full empty supplement footer should be tappable');
+assert.ok(reflectionPage.indexOf('aria-label="补充这次操作"') !== -1, 'the enlarged supplement target should retain a clear accessible label');
 assert.ok(reflectionPage.indexOf('id="eventSupplementEditor" hide-trigger') !== -1, 'event supplement editor should not create a second outer row');
 assert.ok(reflectionPage.indexOf('trigger-text="补充这次回看"') !== -1, 'reflection supplement should be clearly scoped to the current reflection');
 assert.ok(reflectionPage.indexOf('bindtap="previewReflectionAttachment"') !== -1, 'reflection images should open the native image preview');
@@ -50,6 +52,13 @@ assert.ok(recordsPage.indexOf('record-swipe__delete') !== -1, 'record card swipe
 assert.ok(recordsPage.indexOf("filter === 'pending'") !== -1, 'records should retain one primary todo entrance');
 assert.ok(recordsPage.indexOf('chooseTodoFilter') !== -1, 'todo records should separate confirmation and reflection');
 assert.ok(recordsPage.indexOf('todo_group_label') !== -1, 'todo records should be presented in clear groups');
+assert.ok(recordsPage.indexOf('record-card__badges') !== -1, 'record action and execution badges should not compete with long symbols');
+assert.ok(recordsPage.indexOf('record-card__identity--{{item.symbol_layout}}') !== -1, 'only long symbols should use the expanded card layout');
+assert.ok(tradeService.indexOf("return visualUnits > 10 ? 'long' : 'compact'") !== -1, 'symbol layout should adapt to visual length');
+assert.ok(recordsPage.indexOf('action-tag--{{item.action}}') !== -1, 'record actions should use semantic tag colors');
+['buy', 'add', 'reduce', 'exit'].forEach(function (action) {
+  assert.ok(read('miniprogram/app.wxss').indexOf('.action-tag--' + action) !== -1, 'missing semantic color for ' + action);
+});
 var physicalDelete = tradeCloud.slice(tradeCloud.indexOf('async function deleteTradeEvent'), tradeCloud.indexOf('function sanitizeAttachments'));
 assert.ok(physicalDelete.indexOf('.remove()') !== -1, 'trade deletion should physically remove database documents');
 assert.strictEqual(physicalDelete.indexOf('is_deleted: true'), -1, 'trade deletion should not leave soft-deleted documents');
