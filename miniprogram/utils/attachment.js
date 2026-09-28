@@ -3,12 +3,26 @@ var requestId = require('./request-id');
 var MAX_IMAGE_COUNT = 3;
 var MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
+function errorDetail(error) {
+  if (!error) return '';
+  return String(error.errMsg || error.message || error.errCode || '').slice(0, 300);
+}
+
+function createError(code, stage, cause) {
+  var error = new Error(code);
+  error.code = code;
+  error.stage = stage;
+  error.detail = errorDetail(cause);
+  error.platformCode = cause && cause.errCode ? String(cause.errCode) : '';
+  return error;
+}
+
 function stat(path) {
   return new Promise(function (resolve, reject) {
     wx.getFileSystemManager().stat({
       path: path,
       success: function (res) { resolve(res.stats); },
-      fail: reject
+      fail: function (error) { reject(createError('IMAGE_FILE_READ_FAILED', 'read', error)); }
     });
   });
 }
@@ -28,10 +42,10 @@ function compress(file) {
           resolve({ path: res.tempFilePath, size: Number(info.size || 0) });
         }).catch(reject);
       },
-      fail: reject
+      fail: function (error) { reject(createError('IMAGE_COMPRESS_FAILED', 'compress', error)); }
     });
   }).then(function (result) {
-    if (result.size > MAX_IMAGE_BYTES) throw new Error('IMAGE_TOO_LARGE');
+    if (result.size > MAX_IMAGE_BYTES) throw createError('IMAGE_TOO_LARGE', 'compress');
     return result;
   });
 }
@@ -54,6 +68,7 @@ function upload(file, options) {
       requestId.create('image') + '.' + extension(compressed.path)
     ].join('/');
     return wx.cloud.uploadFile({ cloudPath: cloudPath, filePath: compressed.path }).then(function (res) {
+      if (!res || !res.fileID) throw createError('IMAGE_UPLOAD_INVALID_RESPONSE', 'upload');
       return {
         file_id: res.fileID,
         cloud_path: cloudPath,
@@ -61,6 +76,9 @@ function upload(file, options) {
         media_type: 'image',
         uploaded_at: new Date()
       };
+    }).catch(function (error) {
+      if (error && error.code) throw error;
+      throw createError('IMAGE_UPLOAD_FAILED', 'upload', error);
     });
   });
 }

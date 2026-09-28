@@ -9,8 +9,6 @@
       <view class="add-button" hover-class="button-pressed" bindtap="createRecord">
         <view class="add-button__line"></view><view class="add-button__line add-button__line--vertical"></view>
       </view>
-      <view wx:if="{{loadingMore}}" class="records-more">正在翻开更早的记录…</view>
-      <view wx:elif="{{!hasMore && events.length > 10}}" class="records-more">已经看到最早一条</view>
     </view>
 
     <scroll-view wx:if="{{events.length}}" class="filter-scroll" scroll-x enhanced show-scrollbar="{{false}}">
@@ -71,6 +69,10 @@
           </view>
         </view>
         </view>
+      </block>
+      <block wx:if="{{filter !== 'pending'}}">
+        <view wx:if="{{loadingMore}}" class="records-more">正在翻开更早的记录…</view>
+        <view wx:elif="{{!hasMore && events.length > 10}}" class="records-more">已经看到最早一条</view>
       </block>
     </view>
 

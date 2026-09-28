@@ -32,8 +32,50 @@ function ok(data) {
   return { success: true, data: data, error: null };
 }
 
-function fail(error) {
-  return { success: false, data: null, error: error || 'UNKNOWN_ERROR' };
+function fail(error, meta) {
+  const detail = meta || {};
+  return {
+    success: false,
+    data: null,
+    error: error || 'UNKNOWN_ERROR',
+    error_code: error || 'UNKNOWN_ERROR',
+    error_detail: String(detail.error_detail || '').slice(0, 300),
+    platform_error_code: String(detail.platform_error_code || '').slice(0, 80),
+    trace_id: String(detail.trace_id || '').slice(0, 32)
+  };
+}
+
+function tracedError(code, cause) {
+  const error = new Error(code);
+  error.code = code;
+  error.detail = String(cause && (cause.errMsg || cause.message) || '').slice(0, 300);
+  error.platformErrorCode = String(cause && (cause.errCode || cause.code) || '').slice(0, 80);
+  return error;
+}
+
+function classifyError(error) {
+  const knownCodes = ['DATABASE_READ_FAILED', 'DATABASE_WRITE_FAILED'];
+  const code = error && error.code;
+  const message = String(error && (error.detail || error.errMsg || error.message) || '').slice(0, 300);
+  if (knownCodes.indexOf(code) !== -1) {
+    return {
+      error_code: code,
+      error_detail: message,
+      platform_error_code: error.platformErrorCode || ''
+    };
+  }
+  if (/timeout|time.limit|FUNCTIONS_TIME_LIMIT_EXCEEDED/i.test(message)) {
+    return {
+      error_code: 'FUNCTION_TIMEOUT',
+      error_detail: message,
+      platform_error_code: String(error && (error.errCode || error.code) || '').slice(0, 80)
+    };
+  }
+  return {
+    error_code: 'CLOUD_INTERNAL_ERROR',
+    error_detail: message,
+    platform_error_code: String(error && (error.errCode || error.code) || '').slice(0, 80)
+  };
 }
 
 function hash(value) {
@@ -420,15 +462,52 @@ async function deleteTradeEvent(openid, payload) {
   });
 }
 
-function sanitizeAttachments(items) {
+function validAttachmentDate(value, fallback) {
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+  const safeFallback = fallback instanceof Date ? fallback : new Date(fallback);
+  return Number.isNaN(safeFallback.getTime()) ? new Date() : safeFallback;
+}
+
+function sanitizeAttachments(items, existingItems) {
   if (!Array.isArray(items)) return [];
+  const existingById = (existingItems || []).reduce((result, item) => {
+    if (item && item.file_id) result[item.file_id] = item;
+    return result;
+  }, {});
   return items.slice(0, 3).map(item => ({
     file_id: string(item && item.file_id, 500),
     cloud_path: string(item && item.cloud_path, 300),
     size_bytes: Math.max(0, Math.min(Number(item && item.size_bytes) || 0, 5 * 1024 * 1024)),
     media_type: 'image',
-    uploaded_at: item && item.uploaded_at ? new Date(item.uploaded_at) : new Date()
+    uploaded_at: validAttachmentDate(
+      item && item.uploaded_at,
+      existingById[item && item.file_id] && existingById[item.file_id].uploaded_at
+    )
   })).filter(item => item.file_id.indexOf('cloud://') === 0);
+}
+
+function wait(milliseconds) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+async function updateSupplement(collection, id, data) {
+  try {
+    return await db.collection(collection).doc(id).update({ data: data });
+  } catch (firstError) {
+    // The document database can occasionally reject an otherwise valid write.
+    // Retry once with fresh server-date commands before surfacing the failure.
+    await wait(180);
+    try {
+      return await db.collection(collection).doc(id).update({ data: Object.assign({}, data, {
+        supplement_updated_at: SERVER_DATE(),
+        updated_at: SERVER_DATE()
+      }) });
+    } catch (secondError) {
+      secondError.firstAttempt = String(firstError && (firstError.errMsg || firstError.message) || '').slice(0, 200);
+      throw secondError;
+    }
+  }
 }
 
 async function saveSupplement(openid, payload) {
@@ -436,20 +515,29 @@ async function saveSupplement(openid, payload) {
   const id = string(payload.entity_id, 80);
   const collection = type === 'trade_event' ? COLLECTIONS.EVENTS : (type === 'reflection' ? COLLECTIONS.REFLECTIONS : '');
   if (!collection || !id) return fail('VALIDATION_ERROR');
-  const result = await db.collection(collection).doc(id).get();
+  let result;
+  try {
+    result = await db.collection(collection).doc(id).get();
+  } catch (error) {
+    throw tracedError('DATABASE_READ_FAILED', error);
+  }
   const document = result.data;
   if (!document || document._openid !== openid || document.is_deleted) return fail('NOT_FOUND');
-  const attachments = sanitizeAttachments(payload.attachments);
+  const attachments = sanitizeAttachments(payload.attachments, document.attachments);
   const note = string(payload.optional_note, 300);
   const nextIds = attachments.map(item => item.file_id);
   const removed = (document.attachments || []).map(item => item && item.file_id)
     .filter(fileId => fileId && nextIds.indexOf(fileId) === -1);
-  await db.collection(collection).doc(id).update({ data: {
-    optional_note: note,
-    attachments: attachments,
-    supplement_updated_at: SERVER_DATE(),
-    updated_at: SERVER_DATE()
-  } });
+  try {
+    await updateSupplement(collection, id, {
+      optional_note: note,
+      attachments: attachments,
+      supplement_updated_at: SERVER_DATE(),
+      updated_at: SERVER_DATE()
+    });
+  } catch (error) {
+    throw tracedError('DATABASE_WRITE_FAILED', error);
+  }
   let cleanupWarning = false;
   if (removed.length) {
     try { await cloud.deleteFile({ fileList: removed }); } catch (error) { cleanupWarning = true; }
@@ -883,7 +971,8 @@ async function migrateUserData(openid) {
 exports.main = async event => {
   const context = cloud.getWXContext();
   const openid = context.OPENID;
-  if (!openid) return fail('AUTH_ERROR');
+  const traceId = crypto.randomBytes(6).toString('hex').toUpperCase();
+  if (!openid) return fail('AUTH_ERROR', { trace_id: traceId });
   const action = event && event.action;
   const payload = event && event.payload ? event.payload : {};
   try {
@@ -902,9 +991,14 @@ exports.main = async event => {
     if (action === 'getPeriodReview') return await getPeriodReview(openid, payload);
     if (action === 'getPeriodDetail') return await getPeriodDetail(openid, payload);
     if (action === 'migrateUserData') return await migrateUserData(openid);
-    return fail('UNKNOWN_ACTION');
+    return fail('UNKNOWN_ACTION', { trace_id: traceId });
   } catch (error) {
-    console.error('[tradeData]', action, error);
-    return fail(error && error.message ? error.message : 'CLOUD_WRITE_FAILED');
+    const failure = classifyError(error);
+    console.error('[tradeData][' + traceId + ']', action, failure.error_code, failure.platform_error_code, error);
+    return fail(failure.error_code, {
+      error_detail: failure.error_detail,
+      platform_error_code: failure.platform_error_code,
+      trace_id: traceId
+    });
   }
 };
