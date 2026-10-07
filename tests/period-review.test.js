@@ -34,7 +34,7 @@ assert.ok(chart.indexOf("pointsJson: { type: String") !== -1);
 assert.ok(chart.indexOf("compact: { type: Boolean") !== -1);
 assert.ok(chart.indexOf('handleTap') !== -1);
 assert.ok(chart.indexOf("triggerEvent('select', point)") !== -1);
-assert.ok(chart.indexOf("ctx.setStrokeStyle('#2D8065')") !== -1);
+assert.ok(chart.indexOf("ctx.strokeStyle = '#2D8065'") !== -1);
 assert.ok(template.indexOf('常见操作原因') !== -1);
 assert.ok(template.indexOf('变化线索') !== -1);
 

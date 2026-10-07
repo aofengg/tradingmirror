@@ -1,8 +1,10 @@
 <view class="trend-chart">
   <view class="trend-chart__plot {{compact ? 'trend-chart__plot--compact' : ''}}">
   <view wx:if="{{!compact}}" class="trend-chart__axis"><text class="trend-chart__axis-label">100%</text><text class="trend-chart__axis-label">50%</text><text class="trend-chart__axis-label">0%</text></view>
-  <canvas wx:if="{{!suspended}}" canvas-id="behaviorTrendCanvas" class="trend-chart__canvas {{compact ? 'trend-chart__canvas--compact' : ''}} {{interactive ? 'trend-chart__canvas--interactive' : ''}}" bindtap="handleTap"></canvas>
+  <image wx:if="{{imageSrc && !suspended}}" src="{{imageSrc}}" mode="scaleToFill" class="trend-chart__canvas {{compact ? 'trend-chart__canvas--compact' : ''}} {{interactive ? 'trend-chart__canvas--interactive' : ''}}" bindtap="handleTap" binderror="imageFailed" />
   <view wx:else class="trend-chart__canvas {{compact ? 'trend-chart__canvas--compact' : ''}}"></view>
+  <canvas wx:if="{{!suspended}}" type="2d" id="behaviorTrendCanvas" class="trend-chart__renderer" aria-hidden="true"></canvas>
+  <view wx:if="{{chartFailed && !suspended}}" class="trend-chart__error" bindtap="_refresh">趋势暂时没显示，点此重试</view>
   </view>
   <view wx:if="{{!compact}}" class="trend-chart__labels">
     <text>{{firstLabel}}</text><text>{{middleLabel}}</text><text>{{lastLabel}}</text>

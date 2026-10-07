@@ -16,7 +16,7 @@
   overflow: hidden;
   border: 1rpx solid rgba(173, 183, 176, 0.56);
   border-radius: 38rpx;
-  background: rgba(255, 254, 250, 0.95);
+  background: #fffefa;
   box-shadow: 0 18rpx 44rpx rgba(27, 54, 44, 0.14);
   pointer-events: auto;
 }
