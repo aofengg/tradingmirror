@@ -26,3 +26,5 @@
 
 .related-link--compact { min-height: 88rpx; justify-content: flex-end; gap: 10rpx; padding-left: 18rpx; font-size: 23rpx; white-space: nowrap; }
 .related-link--compact .related-arrow { color: #537364; font-size: 29rpx; }
+
+.control-pressed { opacity:.65; }

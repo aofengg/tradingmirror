@@ -1,3 +1,4 @@
+var assetService = require('../../services/asset-service');
 var tradeService = require('../../services/trade-service');
 var constants = require('../../config/constants');
 var share = require('../../utils/share');
@@ -12,6 +13,9 @@ function buildTodoFilters(counts) {
 
 Page({
   data: {
+    viewMode: 'time',
+    assetItems: [], assetLoading: false, assetFailed: false, assetMore: false, assetCursor: null,
+    assetQuery: '', assetTodoOnly: false,
     loading: true,
     hasLoaded: false,
     loadError: false,
@@ -21,9 +25,11 @@ Page({
     filter: 'all',
     todoFilter: 'all',
     todoCounts: { all: 0, confirm: 0, review: 0 },
+    todoUnavailable: false,
     todoFilters: buildTodoFilters({}),
     draggingSwipeId: '',
     loadingMore: false,
+    moreError: false,
     hasMore: true,
     nextCursor: null,
     filters: [
@@ -36,6 +42,10 @@ Page({
 
   onLoad: function () {
     share.enable();
+    this._viewScroll = {time:0,asset:0};
+    this._assetVersion = 0;
+    this._eventsVersion=0;
+    this.setData({viewMode:wx.getStorageSync('records_view_mode') === 'asset' ? 'asset' : 'time'});
     var windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
     this._swipeActionWidth = Math.round(Number(windowInfo.windowWidth || 375) * 148 / 750);
     this._openSwipeId = '';
@@ -47,9 +57,11 @@ Page({
       if (tabBar) tabBar.setData({ selected: 1 });
     }
     var requestedFilter = getApp().globalData._recordsInitialFilter;
+    if (requestedFilter) this.setData({viewMode:'time'});
+    else if (this.data.viewMode === 'asset') { this.loadAssets(false, Math.max(20, this.data.assetItems.length)); return; }
     if (requestedFilter) {
       var requestedTodo = getApp().globalData._recordsInitialTodoFilter || 'all';
-      this.setData({ filter: requestedFilter, todoFilter: requestedTodo });
+      this.setData({ filter: requestedFilter, todoFilter: requestedTodo },function(){wx.pageScrollTo({scrollTop:0,duration:0});});
       getApp().globalData._recordsInitialTodoFilter = '';
       getApp().globalData._recordsInitialFilter = '';
       if (this.data.hasLoaded) this._applyFilter();
@@ -60,30 +72,37 @@ Page({
   },
 
   onPullDownRefresh: function () {
-    this._loadEvents();
+    assetService.clearCache();
+    if (this.data.viewMode === 'asset') this.loadAssets();
+    else this._loadEvents();
   },
 
   _loadEvents: function () {
     var self = this;
     var revision = getApp().getPageRevision('records');
+    var version=++self._eventsVersion;
+    var restoreCount=Math.max(20,self.data.events.length);
+    var restored=[];
+    function readEvents(cursor){return tradeService.getEventPage(20,cursor).then(function(result){
+      if(!result.success)throw new Error(result.error||'LOAD_FAILED');
+      if(version!==self._eventsVersion)return result;
+      restored=restored.concat(result.data.list);
+      if(restored.length<restoreCount&&result.data.hasMore&&result.data.nextCursor)return readEvents(result.data.nextCursor);
+      return {success:true,data:{list:restored,hasMore:result.data.hasMore,nextCursor:result.data.nextCursor}};
+    });}
     self.setData({ loading: !self.data.hasLoaded, loadError: false });
     getApp().waitForLogin().then(function () {
       return Promise.all([
-        tradeService.getEventPage(20, null),
+        readEvents(null),
         tradeService.getTodoOverview()
       ]);
     }).then(function (results) {
+      if(version!==self._eventsVersion)return;
       var res = results[0];
       var todoRes = results[1];
       if (!res.success) throw new Error(res.error || 'LOAD_FAILED');
-      var fallbackConfirm = res.data.list.filter(function (item) { return item.execution_status === 'pending'; });
-      var fallbackReview = res.data.list.filter(function (item) {
-        return item.execution_status === 'executed' && Number(item.reflection_count || 0) === 0;
-      });
       var todoData = todoRes.success ? todoRes.data : {
-        confirmItems: fallbackConfirm,
-        reviewItems: fallbackReview,
-        counts: { all: fallbackConfirm.length + fallbackReview.length, confirm: fallbackConfirm.length, review: fallbackReview.length }
+        confirmItems: [], reviewItems: [], counts: {all:0,confirm:0,review:0}
       };
       var todoEvents = todoData.confirmItems.map(function (item) {
         return Object.assign({}, item, { todo_type: 'confirm' });
@@ -95,6 +114,7 @@ Page({
         hasLoaded: true,
         events: res.data.list,
         todoEvents: todoEvents,
+        todoUnavailable: !todoRes.success,
         todoCounts: todoData.counts,
         todoFilters: buildTodoFilters(todoData.counts),
         hasMore: res.data.hasMore,
@@ -104,6 +124,7 @@ Page({
       self._lastLoadedAt = Date.now();
       self._loadedRevision = revision;
     }).catch(function (error) {
+      if(version!==self._eventsVersion)return;
       console.error('记录加载失败', error);
       self.setData({ loading: false, loadError: true });
     }).then(function () {
@@ -112,26 +133,32 @@ Page({
   },
 
   onReachBottom: function () {
+    if (this.data.viewMode === 'asset') { if (this.data.assetMore && !this.data.assetLoading) this.loadAssets(true); return; }
     var self = this;
     if (self.data.filter === 'pending') return;
     if (self.data.loadingMore || !self.data.hasMore || !self.data.nextCursor) return;
     self.setData({ loadingMore: true });
+    var version=self._eventsVersion;
     tradeService.getEventPage(20, self.data.nextCursor).then(function (res) {
+      if(version!==self._eventsVersion)return;
       if (!res.success) throw new Error(res.error || 'LOAD_MORE_FAILED');
       self.setData({
         loadingMore: false,
+        moreError: false,
         events: self.data.events.concat(res.data.list),
         hasMore: res.data.hasMore,
         nextCursor: res.data.nextCursor
       });
       self._applyFilter();
     }).catch(function () {
-      self.setData({ loadingMore: false });
+      if(version!==self._eventsVersion)return;
+      self.setData({ loadingMore: false, moreError: true });
     });
   },
 
   chooseFilter: function (event) {
     var nextFilter = event.currentTarget.dataset.filter;
+    if(nextFilter===this.data.filter)return;
     var patch = { filter: nextFilter };
     if (nextFilter === 'pending' && this.data.filter !== 'pending') patch.todoFilter = 'all';
     this.setData(patch);
@@ -139,6 +166,7 @@ Page({
   },
 
   chooseTodoFilter: function (event) {
+    if(event.currentTarget.dataset.filter===this.data.todoFilter)return;
     this.setData({ todoFilter: event.currentTarget.dataset.filter });
     this._applyFilter();
   },
@@ -173,7 +201,7 @@ Page({
     this.setData({
       draggingSwipeId: '',
       filteredEvents: list.map(function (item) {
-        return Object.assign({}, item, { swipe_offset: 0 });
+        return Object.assign({}, assetService.decorate(item), { swipe_offset: 0 });
       })
     });
   },
@@ -243,6 +271,58 @@ Page({
     if (!offset && this._openSwipeId === id) this._openSwipeId = '';
   },
 
+  onPageScroll: function (event) {
+    if (this._viewScroll) this._viewScroll[this.data.viewMode] = event.scrollTop;
+  },
+
+  onUnload: function () { clearTimeout(this._assetTimer); this._assetVersion++;this._eventsVersion++; },
+
+  chooseView: function (event) {
+    var mode = event.currentTarget.dataset.mode;
+    if (mode === this.data.viewMode) return;
+    var self=this; var top=this._viewScroll[mode] || 0;
+    this.setData({viewMode:mode},function(){wx.pageScrollTo({scrollTop:top,duration:0});});
+    wx.setStorageSync('records_view_mode',mode);
+    if (mode === 'asset') this.loadAssets(false, Math.max(20, this.data.assetItems.length));
+    else if (!this.data.hasLoaded || this._loadedRevision !== getApp().getPageRevision('records')) this._loadEvents();
+  },
+
+  searchAssets: function (event) {
+    this.setData({assetQuery:event.detail.value,assetCursor:null,assetItems:[],assetMore:false,assetLoading:true});
+    this._assetVersion++; clearTimeout(this._assetTimer);
+    var self=this; this._assetTimer=setTimeout(function(){self.loadAssets();},350);
+  },
+
+  clearAssetSearch: function () {clearTimeout(this._assetTimer);this._assetVersion++;this.setData({assetQuery:'',assetCursor:null,assetItems:[],assetMore:false});this.loadAssets();},
+
+  chooseAssetFilter: function (event) {
+    if((event.currentTarget.dataset.filter==='todo')===this.data.assetTodoOnly)return;
+    this.setData({assetTodoOnly:event.currentTarget.dataset.filter === 'todo'});
+    this.loadAssets();
+  },
+
+  loadAssets: function (append, restoreCount) {
+    append=append===true;
+    var self=this; var version=++this._assetVersion;
+    this.setData({assetLoading:true,assetFailed:false});
+    var options={query:this.data.assetQuery,todoOnly:this.data.assetTodoOnly,cursor:append?this.data.assetCursor:null};
+    var combined=append?this.data.assetItems.slice():[];
+    function next(){return assetService.list(options).then(function(result){
+      if(version!==self._assetVersion)return;
+      combined=combined.concat(result.list);
+      if(!append && restoreCount && combined.length<restoreCount && result.hasMore){options.cursor=result.nextCursor;return next();}
+      var seen={}; var list=combined.filter(function(item){if(seen[item.key])return false;seen[item.key]=true;return true;});
+      self.setData({assetItems:list,assetCursor:result.nextCursor,assetMore:result.hasMore,assetLoading:false});
+    });}
+    next().catch(function(){if(version===self._assetVersion)self.setData({assetLoading:false,assetFailed:true});}).then(function(){wx.stopPullDownRefresh();});
+  },
+
+  openAsset: function (event) {
+    var key=event.currentTarget.dataset.key;
+    if (!key) { var item=this.data.filteredEvents[event.currentTarget.dataset.index]; if(item) key=assetService.keyFor(item); }
+    if(key)assetService.open(key);
+  },
+
   createRecord: function () {
     wx.navigateTo({ url: constants.ROUTES.RECORD + '?stage=after' });
   },
@@ -254,22 +334,13 @@ Page({
       return;
     }
     var id = event.currentTarget.dataset.id;
-    var status = event.currentTarget.dataset.status;
-    var self = this;
-    if (status === 'executed') {
-      wx.navigateTo({ url: constants.ROUTES.REFLECTION + '?id=' + id });
-      return;
-    }
-    if (status === 'cancelled') return;
-    wx.showActionSheet({
-      itemList: ['已执行', '没有执行'],
-      success: function (res) {
-        var nextStatus = res.tapIndex === 0 ? 'executed' : 'cancelled';
-        tradeService.markExecution(id, nextStatus).then(function (saveRes) {
-          if (saveRes.success) self._loadEvents();
-        });
-      }
-    });
+    if (id) wx.navigateTo({ url: constants.ROUTES.REFLECTION + '?id=' + encodeURIComponent(id) + '&mode=detail' });
+  },
+
+  openConfirmation: function (event) { this.openReflection(event); },
+  startReview: function (event) {
+    var id=event.currentTarget.dataset.id;
+    if(id)wx.navigateTo({url:constants.ROUTES.REFLECTION+'?id='+encodeURIComponent(id)+'&mode=review'});
   },
 
   openRecordMenu: function (event) {
@@ -295,33 +366,6 @@ Page({
         if (action.type === 'status') self._changeExecutionStatus(data.id, action.status);
         if (action.type === 'delete') self._confirmDelete(data.id, data.symbol);
         if (action.type === 'explain') self._showRollbackExplanation();
-      }
-    });
-  },
-
-  openStatusMenu: function (event) {
-    var data = event.currentTarget.dataset;
-    var actions = [];
-    if (data.status === 'pending') {
-      actions.push({ label: '已执行', status: 'executed' });
-      actions.push({ label: '没有执行', status: 'cancelled' });
-    } else if (data.status === 'executed') {
-      if (Number(data.reflectionCount || 0) === 0) actions.push({ label: '撤销执行', status: 'pending' });
-      else {
-        this._showRollbackExplanation();
-        return;
-      }
-    } else if (data.status === 'cancelled') {
-      actions.push({ label: '恢复待确认', status: 'pending' });
-    }
-    if (!actions.length) return;
-
-    var self = this;
-    wx.showActionSheet({
-      itemList: actions.map(function (item) { return item.label; }),
-      success: function (res) {
-        var action = actions[res.tapIndex];
-        if (action) self._changeExecutionStatus(data.id, action.status);
       }
     });
   },
@@ -358,7 +402,7 @@ Page({
     var self = this;
     wx.showModal({
       title: '删除这条记录？',
-      content: '删除后无法恢复，并将同时删除 ' + symbol + ' 的全部回看与图片。',
+      content: '删除后无法恢复，' + symbol + ' 的这条操作及其回看、备注和图片会一起删除。',
       confirmText: '删除',
       confirmColor: '#B64A45',
       success: function (modalRes) {

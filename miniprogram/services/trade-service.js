@@ -275,6 +275,7 @@ function deleteTradeEvent(id) {
 }
 
 module.exports = {
+  decorateEvent: decorateEvent,
   createTradeEvent: createTradeEvent,
   markExecution: markExecution,
   updatePlanStatus: updatePlanStatus,

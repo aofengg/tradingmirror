@@ -1,0 +1,8 @@
+/* Shared presentation for stock history and the previous-decision reminder. */
+.review-line { display:flex; align-items:center; flex-wrap:wrap; gap:10rpx; }
+.review-state,.feeling-badge { display:inline-flex; align-items:center; justify-content:center; flex:none; min-height:38rpx; padding:2rpx 12rpx; box-sizing:border-box; border-radius:var(--radius-xs); font-size:var(--font-size-2xs); font-weight:600; line-height:1.5; }
+.review-state--due { color:var(--color-warm-dark); background:var(--color-warm-soft); }
+.review-state--reviewed { color:var(--color-primary); background:var(--color-primary-soft); }
+.review-state--waiting,.feeling-badge--acceptable,.feeling-badge--unknown { color:var(--color-text-secondary); background:var(--color-bg-soft); }
+.feeling-badge--satisfied { color:var(--color-primary); background:var(--color-primary-soft); }
+.feeling-badge--regret { color:var(--color-danger); background:var(--color-danger-soft); }

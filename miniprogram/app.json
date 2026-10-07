@@ -5,7 +5,8 @@
     "pages/review/index",
     "pages/mine/index",
     "pages/record/index",
-    "pages/reflection/index"
+    "pages/reflection/index",
+    "pages/asset-history/index"
   ],
   "window": {
     "navigationBarTitleText": "交易留痕",
@@ -20,10 +21,22 @@
     "selectedColor": "#24624E",
     "backgroundColor": "#FFFFFF",
     "list": [
-      { "pagePath": "pages/today/index", "text": "今日" },
-      { "pagePath": "pages/records/index", "text": "记录" },
-      { "pagePath": "pages/review/index", "text": "复盘" },
-      { "pagePath": "pages/mine/index", "text": "我的" }
+      {
+        "pagePath": "pages/today/index",
+        "text": "今日"
+      },
+      {
+        "pagePath": "pages/records/index",
+        "text": "记录"
+      },
+      {
+        "pagePath": "pages/review/index",
+        "text": "复盘"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的"
+      }
     ]
   },
   "sitemapLocation": "sitemap.json",

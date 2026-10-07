@@ -24,22 +24,25 @@ Page({
     detailLoading: false,
     detailError: false,
     detailTitle: '',
-    detailItems: []
+    detailItems: [],
+    analysisExpanded: false, focusExpanded: false, selectedFocusLabel: ''
   },
 
   onLoad: function () {
     share.enable();
     this._reviewCache = {};
     this._reviewCacheRevisions = {};
+    this._loadVersions={};this._cacheDay={};
   },
 
   onShow: function () {
     if (typeof this.getTabBar === 'function') {
       var tabBar = this.getTabBar();
-      if (tabBar) tabBar.setData({ selected: 2, hidden: false });
+      if (tabBar) tabBar.setData({ selected: 2, hidden: this.data.detailOpen });
     }
     var revision = getApp().getPageRevision('review');
-    if (this._reviewCache[this.data.periodType] && this._reviewCacheRevisions[this.data.periodType] === revision) {
+    if(getApp().globalData._reviewInitialSection==='focus'){getApp().globalData._reviewInitialSection='';this._scrollToFocus=true;this.setData({periodType:'week',selectedPeriodId:'',focusExpanded:true});}
+    if (this._reviewCache[this.data.periodType] && this._reviewCacheRevisions[this.data.periodType] === revision && this._cacheDay[this.data.periodType]===new Date().toDateString()) {
       this._applyResult(this._reviewCache[this.data.periodType]);
       return;
     }
@@ -57,8 +60,9 @@ Page({
   switchPeriod: function (event) {
     var type = event.currentTarget.dataset.period === 'month' ? 'month' : 'week';
     if (type === this.data.periodType) return;
-    this.setData({ periodType: type, selectedPeriodId: '', loadError: false, trendExpanded: false, detailOpen: false });
-    if (this._reviewCache[type] && this._reviewCacheRevisions[type] === getApp().getPageRevision('review')) {
+    this.closeDetail();
+    this.setData({ periodType: type, selectedPeriodId: '', loadError: false, trendExpanded: false, detailOpen: false, analysisExpanded:false, summary:null });
+    if (this._reviewCache[type] && this._reviewCacheRevisions[type] === getApp().getPageRevision('review') && this._cacheDay[type]===new Date().toDateString()) {
       this._applyResult(this._reviewCache[type]);
       return;
     }
@@ -68,21 +72,24 @@ Page({
   _loadReview: function (periodType, force) {
     var self = this;
     var revision = getApp().getPageRevision('review');
-    if (!force && self._reviewCache[periodType] && self._reviewCacheRevisions[periodType] === revision) {
+    if (!force && self._reviewCache[periodType] && self._reviewCacheRevisions[periodType] === revision && self._cacheDay[periodType]===new Date().toDateString()) {
       self._applyResult(self._reviewCache[periodType]);
       return;
     }
     self.setData({ loading: true, loadError: false });
+    var version=(self._loadVersions[periodType]||0)+1;self._loadVersions[periodType]=version;
     getApp().waitForLogin().then(function () {
       return tradeService.getPeriodReview(periodType);
     }).then(function (res) {
+      if(self._loadVersions[periodType]!==version)return;
       if (!res.success) throw new Error(res.error || 'LOAD_FAILED');
       self._reviewCache[periodType] = res.data;
       self._reviewCacheRevisions[periodType] = revision;
-      if (self.data.periodType === periodType) self._applyResult(res.data);
+      self._cacheDay[periodType]=new Date().toDateString();
+      if (self.data.periodType === periodType) { self._applyResult(res.data);if(self.data.detailOpen)self.retryDetail(); }
     }).catch(function (error) {
       console.error('复盘加载失败', error);
-      if (self.data.periodType === periodType) self.setData({ loading: false, loadError: true });
+      if (self._loadVersions[periodType]===version && self.data.periodType === periodType) self.setData({ loading: false, loadError: true });
     }).then(function () {
       wx.stopPullDownRefresh();
     });
@@ -96,7 +103,8 @@ Page({
       trendReady: activePoints.length >= 2,
       trendActiveCount: activePoints.length,
       trendCurrentValue: latestPoint ? latestPoint.value : null,
-      trendProgress: Math.min(100, activePoints.length * 50)
+      trendProgress: Math.min(100, activePoints.length * 50),
+      trendSmallSample: activePoints.slice(-2).some(function(point){return Number(point.eventCount||0)<5;})
     };
     this.setData({
       loading: false,
@@ -116,10 +124,12 @@ Page({
     var selected = (data.periodSummaries || []).filter(function (item) { return item.periodId === periodId; })[0];
     if (!selected) selected = data;
     var viewingHistory = selected.periodId !== data.periodId;
+    var self=this;
     this.setData({
       periodLabel: selected.periodLabel || data.periodLabel || '',
       selectedPeriodId: selected.periodId || data.periodId || '',
       viewingHistory: viewingHistory,
+      selectedFocusLabel: ((selected.focuses||[]).filter(function(item){return item.key===this.data.selectedFocus;},this)[0]||{}).label || (data.currentFocus&&data.currentFocus.label) || '',
       summary: Object.assign({}, selected, this._trendMeta || {}, {
         disciplineScore: selected.eventCount ? selected.disciplineScore : 0,
         reviewRate: selected.reviewRate || 0,
@@ -128,8 +138,11 @@ Page({
         changeClueReady: !viewingHistory && data.changeClueReady,
         changeClue: !viewingHistory ? data.changeClue : ''
       })
-    });
+    },function(){if(self._scrollToFocus){self._scrollToFocus=false;wx.pageScrollTo({selector:'#focusSection',duration:0});}});
   },
+
+  toggleAnalysis: function () { this.setData({analysisExpanded:!this.data.analysisExpanded}); },
+  toggleFocus: function () { this.setData({focusExpanded:!this.data.focusExpanded}); },
 
   toggleTrend: function () {
     if (!this.data.summary || !this.data.summary.trendReady) return;
@@ -158,6 +171,8 @@ Page({
 
   openMetricDetail: function (event) {
     var metric = event.currentTarget.dataset.metric;
+    var fields={planned:'plannedCount',impulsive:'impulsiveCount',reviewed:'reviewedCount',regret:'regretCount'};
+    if(!this.data.summary || !Number(this.data.summary[fields[metric]]))return;
     var titles = {
       planned: '按计划行动',
       impulsive: '临时决定',
@@ -212,8 +227,7 @@ Page({
   openDetailRecord: function (event) {
     var id = event.currentTarget.dataset.id;
     if (!id) return;
-    this.closeDetail();
-    wx.navigateTo({ url: constants.ROUTES.REFLECTION + '?id=' + id });
+    wx.navigateTo({ url: constants.ROUTES.REFLECTION + '?id=' + encodeURIComponent(id) });
   },
 
   _setTabbarHidden: function (hidden) {
@@ -229,7 +243,8 @@ Page({
   chooseFocus: function (event) {
     var self = this;
     var key = event.currentTarget.dataset.key;
-    if (key === self.data.selectedFocus || self.data.focusSaving) return;
+    if (self.data.focusSaving) return;
+    if (key === self.data.selectedFocus) {self.setData({focusExpanded:false});return;}
     self.setData({ focusSaving: true });
     tradeService.saveWeeklyFocus(key).then(function (res) {
       if (!res.success) {
@@ -238,10 +253,10 @@ Page({
         toast.showError('提醒保存失败');
         return;
       }
-      self.setData({ selectedFocus: key, focusSaving: false });
+      self.setData({ selectedFocus: key, focusSaving: false, focusExpanded:false, selectedFocusLabel:((self.data.summary.focuses||[]).filter(function(item){return item.key===key;})[0]||{}).label||'' });
       if (self._reviewCache.week) self._reviewCache.week.currentFocus = res.data;
       getApp().invalidatePages(['today']);
-      toast.showSuccess('已设为下周提醒');
+      toast.showSuccess('已设为本周提醒');
     }).catch(function (error) {
       console.error('提醒保存异常', error);
       self.setData({ focusSaving: false });

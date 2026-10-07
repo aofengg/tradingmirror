@@ -21,8 +21,8 @@ assert.ok(todayJs.indexOf('results[2].data.length === 0') !== -1);
 assert.ok(todayWxml.indexOf('少看结果，多看行为') !== -1);
 assert.ok(todayWxml.indexOf('先随便看看') !== -1);
 assert.ok(recordWxml.indexOf('价格、仓位与长篇分析都不是必填') !== -1);
-assert.ok(recordWxml.indexOf('等首页出现“可以回看了”') !== -1);
-assert.ok(reflectionWxml.indexOf('不需要证明当时对错') !== -1);
-assert.ok(reviewWxml.indexOf('你的趋势刚刚长出来了') !== -1);
+assert.ok(recordWxml.indexOf('等今日出现“待回看”') !== -1);
+assert.ok(reflectionWxml.indexOf('不用证明当时对错') !== -1);
+assert.ok(reviewWxml.indexOf('再积累一个有操作的周期') !== -1);
 
 console.log('onboarding tests passed');

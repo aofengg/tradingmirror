@@ -15,3 +15,5 @@
 .trend-chart__period { min-height: 88rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8rpx; border: 2rpx solid transparent; border-radius: 16rpx; background: #f4f5f1; color: #63736b; font-size: 21rpx; }
 .trend-chart__period--selected { border-color: #2d8065; background: #e6f1eb; color: #1f6855; font-weight: 600; }
 .trend-chart__period--empty { color: #8d9791; background: transparent; }
+
+.control-pressed { opacity:.65; }

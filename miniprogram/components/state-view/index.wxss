@@ -81,3 +81,7 @@
 .state__dot--second { animation-delay: 0.14s; }
 .state__dot--third { animation-delay: 0.28s; }
 @keyframes pulse { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-8rpx); } }
+
+.control-pressed { opacity:.65; }
+
+.state__action { min-height:88rpx; }

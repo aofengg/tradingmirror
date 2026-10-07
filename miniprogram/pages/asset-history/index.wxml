@@ -1,0 +1,47 @@
+<view class="page asset-history-page">
+  <view class="page-content">
+    <view wx:if="{{fromRecord}}" class="asset-return" bindtap="returnToRecord" hover-class="control-pressed" hover-stay-time="80">‹ 返回本次记录</view>
+    <text wx:if="{{summary}}" class="eyebrow">个股历史 · {{summary.market_label}}</text>
+    <view wx:if="{{summary}}" class="asset-history-head">
+      <view><text class="page-title">{{summary.symbol}}</text></view>
+      <view wx:if="{{!fromRecord}}" class="asset-history-head__actions"><view class="asset-manage" bindtap="manageAsset" role="button" aria-label="管理标的归组" hover-class="control-pressed" hover-stay-time="80">•••</view></view>
+    </view>
+    <text wx:if="{{summary}}" class="page-subtitle">从 {{summary.first_label}} 开始 · 共 {{summary.count}} 条记录</text>
+    <asset-overview wx:if="{{summary}}" id="assetOverview" asset-key="{{key}}" refresh-token="{{overviewRefresh}}" bind:openrecord="openOverviewRecord" />
+    <view wx:if="{{summary}}" class="asset-timeline-head"><text class="section-kicker">操作记录</text><view bindtap="toggleOrder" hover-class="control-pressed" hover-stay-time="80">{{direction === 'desc' ? '最近在前 ↓' : '从头看 ↑'}}</view></view>
+    <scroll-view wx:if="{{summary}}" class="filter-scroll" scroll-x enhanced show-scrollbar="{{false}}"><view class="filter-list"><view wx:for="{{filters}}" wx:key="key" class="filter-chip {{filter === item.key ? 'filter-chip--active' : ''}}" data-filter="{{item.key}}" bindtap="chooseFilter" hover-class="control-pressed" hover-stay-time="80">{{item.label}}</view></view></scroll-view>
+    <view class="asset-timeline">
+      <block wx:for="{{items}}" wx:key="_id">
+        <text wx:if="{{item.show_month}}" class="asset-month">{{item.history_year}}</text>
+        <view class="timeline__item">
+          <view class="timeline__rail"><view class="timeline__dot"></view></view>
+          <view class="card record-card asset-event" data-id="{{item._id}}" bindtap="openRecord" hover-class="button-pressed">
+            <view class="asset-event__head"><text class="action-tag action-tag--{{item.action}}">{{item.action_label}}</text><view class="asset-event__statuses"><text wx:if="{{item.execution_status !== 'executed'}}" class="record-card__execution record-card__execution--{{item.execution_status}}">{{item.execution_label}}</text><text wx:if="{{item.review_status}}" class="review-state review-state--{{item.review_status}}">{{item.review_label}}</text></view></view>
+            <text class="record-card__caption">记录于 {{item.history_date}}</text>
+            <text class="record-card__reason">“{{item.reason_label}}”</text>
+            <text wx:if="{{item.history_note}}" class="asset-event__note">{{item.history_note}}</text>
+            <text wx:if="{{item.attachments.length}}" class="asset-event__images">{{item.attachments.length}} 张图 · 点开查看</text>
+            <view class="asset-event__review" wx:if="{{item.review_status === 'reviewed'}}"><view class="review-line"><text>{{item.history_review_time || '后来回看'}}</text><text class="feeling-badge feeling-badge--{{item.history_feeling_key}}">{{item.history_feeling}}</text></view><text class="asset-event__review-count" wx:if="{{item.reflection_count > 1}}">共 {{item.reflection_count}} 次回看</text></view>
+            <view class="asset-event__footer"><text class="pill {{item.plan_status === 'impulsive' ? 'pill--warm' : ''}}">{{item.plan_label}}</text><text>查看原记录 ›</text></view>
+          </view>
+        </view>
+      </block>
+    </view>
+    <view wx:if="{{failed}}" class="records-more" bindtap="retry" hover-class="control-pressed" hover-stay-time="80">暂时没能打开，点此重试</view>
+    <view wx:elif="{{loading || loadingMore}}" class="records-more">正在找回个股历史…</view>
+    <view wx:elif="{{!items.length}}" class="card state-card"><state-view type="empty" title="{{summary ? '这一类暂时没有记录' : '这里还没有个股历史'}}" description="{{summary ? '换个筛选，看看其他决定' : '删除的记录不会出现在这里'}}" /></view>
+    <view wx:elif="{{!hasMore}}" class="records-more">{{filter === 'all' ? '已看到全部记录' : '以上为这一类的全部记录'}}</view>
+  </view>
+</view>
+<root-portal><view wx:if="{{aliasVisible}}" class="asset-overlay ui-portal" catchtap="closeAlias" catchtouchmove="stop"><view class="asset-sheet" catchtap="stop">
+  <view class="asset-sheet__head"><text class="section-kicker">归到已有个股</text><view bindtap="closeAlias" hover-class="control-pressed" hover-stay-time="80">关闭</view></view>
+  <text class="page-subtitle">只显示同市场、同类型的标的。请选择同一个标的的另一名称。</text>
+  <input class="asset-search" placeholder="搜索代码或名称" value="{{aliasQuery}}" bindinput="searchAlias" />
+  <scroll-view scroll-y show-scrollbar="{{false}}" class="asset-sheet__list" bindscrolltolower="moreAliases">
+    <view wx:for="{{aliasItems}}" wx:key="key" class="asset-alias-item" data-index="{{index}}" bindtap="mergeInto" hover-class="control-pressed" hover-stay-time="80"><text>{{item.symbol}} · {{item.market_label}}</text><text>{{item.count}} 条 ›</text></view>
+    <view wx:if="{{aliasLoading || merging}}" class="records-more">{{merging ? '正在归并…' : '正在加载…'}}</view>
+    <view wx:elif="{{aliasFailed}}" class="records-more" bindtap="loadAliases" hover-class="control-pressed" hover-stay-time="80">加载失败，点此重试</view>
+    <view wx:elif="{{aliasMore}}" class="records-more" bindtap="moreAliases" hover-class="control-pressed" hover-stay-time="80">查看更多</view>
+    <view wx:elif="{{!aliasItems.length}}" class="records-more">没有找到可归组的标的</view>
+  </scroll-view>
+</view></view></root-portal>

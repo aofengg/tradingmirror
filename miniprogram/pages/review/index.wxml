@@ -1,126 +1,54 @@
-<view class="page review-page">
-  <view class="page-content">
-    <view class="period-switch" role="tablist">
-      <view class="period-switch__item {{periodType === 'week' ? 'period-switch__item--active' : ''}}" data-period="week" bindtap="switchPeriod">周复盘</view>
-      <view class="period-switch__item {{periodType === 'month' ? 'period-switch__item--active' : ''}}" data-period="month" bindtap="switchPeriod">月复盘</view>
+<view class="page review-page"><view class="page-content">
+  <view class="period-switch" role="tablist"><view class="period-switch__item {{periodType === 'week' ? 'period-switch__item--active' : ''}}" data-period="week" bindtap="switchPeriod" hover-class="control-pressed" hover-stay-time="80">周复盘</view><view class="period-switch__item {{periodType === 'month' ? 'period-switch__item--active' : ''}}" data-period="month" bindtap="switchPeriod" hover-class="control-pressed" hover-stay-time="80">月复盘</view></view>
+  <view class="period-meta"><text class="eyebrow">{{periodLabel}}</text><view wx:if="{{viewingHistory}}" class="period-meta__current" bindtap="returnToCurrentPeriod" hover-class="control-pressed" hover-stay-time="80">回到{{periodType === 'week' ? '本周' : '本月'}} ›</view></view>
+  <text class="page-title">{{viewingHistory ? '回看这个周期' : periodType === 'week' ? '这一周的记录' : '这个月的记录'}}</text>
+  <view wx:if="{{loading}}" class="card state-card"><state-view type="loading" title="正在整理复盘" compact /></view>
+  <block wx:elif="{{summary}}">
+    <view wx:if="{{loadError}}" class="inline-retry" bindtap="retry" hover-class="control-pressed" hover-stay-time="80">更新暂时失败，点此重试</view>
+    <view wx:if="{{summary.eventCount}}" class="card review-summary">
+      <view class="review-summary__head"><text>已执行 {{summary.eventCount}} 次操作</text></view>
+      <view class="review-summary__main" data-metric="planned" bindtap="openMetricDetail" role="button" hover-class="control-pressed" hover-stay-time="80">
+        <view><text class="review-summary__label">按计划行动</text><view class="review-summary__number"><text>{{summary.eventCount < 5 ? summary.plannedCount + ' / ' + summary.eventCount : summary.disciplineScore}}</text><text>{{summary.eventCount < 5 ? '次' : '%'}}</text></view></view><text wx:if="{{summary.plannedCount}}" class="review-summary__link">对应记录 ›</text>
+      </view>
+      <text class="review-summary__hint">{{summary.eventCount < 5 ? '样本还少，先保留每一次真实决定。' : '按计划 ' + summary.plannedCount + ' / ' + summary.eventCount + ' 次，不评价收益。'}}</text>
+      <view class="review-metrics"><view class="{{!summary.impulsiveCount ? 'review-metric--empty' : ''}}" data-metric="impulsive" bindtap="openMetricDetail" hover-class="control-pressed" hover-stay-time="80"><text>{{summary.impulsiveCount}}</text><text>临时决定{{summary.impulsiveCount ? ' ›' : ''}}</text></view><view class="{{!summary.reviewedCount ? 'review-metric--empty' : ''}}" data-metric="reviewed" bindtap="openMetricDetail" hover-class="control-pressed" hover-stay-time="80"><text>{{summary.reviewedCount}}</text><text>完成回看{{summary.reviewedCount ? ' ›' : ''}}</text></view><view class="{{!summary.regretCount ? 'review-metric--empty' : ''}}" data-metric="regret" bindtap="openMetricDetail" hover-class="control-pressed" hover-stay-time="80"><text>{{summary.regretCount}}</text><text>最近懊悔{{summary.regretCount ? ' ›' : ''}}</text></view></view>
     </view>
-    <view class="period-meta">
-      <text class="eyebrow">{{periodLabel}}</text>
-      <text wx:if="{{viewingHistory}}" class="period-meta__current" bindtap="returnToCurrentPeriod">回到{{periodType === 'week' ? '本周' : '本月'}} ›</text>
-    </view>
-    <text class="page-title">{{viewingHistory ? (periodType === 'week' ? '回到这一周，只看行为' : '回到这个月，看看变化') : (periodType === 'week' ? '这一周，只看行为' : '这个月，看看变化')}}</text>
-    <text class="page-subtitle">{{periodType === 'week' ? '短周期及时纠偏，不拿后来涨跌反推对错。' : '把每一次小选择连起来，看见自己是否更稳定。'}}</text>
+    <view wx:else class="card state-card"><state-view type="empty" title="这个周期还没有操作" description="历史周期仍可从趋势中查看。" compact /></view>
 
-    <view wx:if="{{loading}}" class="card state-card">
-      <state-view type="loading" title="{{periodType === 'week' ? '正在整理这一周' : '正在整理这个月'}}" description="只统计你真正执行过的操作" />
+    <view wx:if="{{periodType === 'week' && !viewingHistory}}" id="focusSection" class="card review-focus">
+      <view class="review-focus__head" bindtap="toggleFocus" role="button" hover-class="control-pressed" hover-stay-time="80"><view><text class="section-kicker">本周行为提醒</text><text class="review-focus__value">{{selectedFocusLabel ? '少一次“' + selectedFocusLabel + '”。' : summary.eventCount ? '最想少做哪一件事？' : '有操作后，再选择一条提醒'}}</text></view><text wx:if="{{summary.eventCount}}">{{focusExpanded ? '收起 ⌃' : selectedFocusLabel ? '调整 ›' : '选择 ›'}}</text></view>
+      <view wx:if="{{summary.eventCount && focusExpanded}}" class="focus-list"><view wx:for="{{summary.focuses}}" wx:key="key" class="focus-choice {{selectedFocus === item.key ? 'focus-choice--selected' : ''}} {{focusSaving ? 'focus-choice--saving' : ''}}" data-key="{{item.key}}" bindtap="chooseFocus" hover-class="control-pressed" hover-stay-time="80"><view class="focus-choice__radio"><view wx:if="{{selectedFocus === item.key}}"></view></view><text>{{item.label}}</text><text class="focus-choice__arrow">›</text></view><text class="review-summary__hint">选后即保存，只留一条。</text></view>
     </view>
 
-    <block wx:elif="{{summary}}">
-      <block wx:if="{{summary.eventCount}}">
-        <view class="score-card" data-metric="planned" bindtap="openMetricDetail" hover-class="metric-card--pressed">
-          <view class="score-card__copy">
-            <text class="score-card__label">按计划行动</text>
-            <view class="score-card__number"><text>{{summary.disciplineScore}}</text><text>%</text></view>
-            <text class="score-card__hint">这不是成绩，只是一面镜子</text>
-            <text class="score-card__link">查看 {{summary.plannedCount}} 条记录 ›</text>
-          </view>
-          <view class="score-card__visual">
-            <view class="score-card__ring"><view class="score-card__ring-inner"><text>{{summary.eventCount}}</text><text>次操作</text></view></view>
-          </view>
-        </view>
+    <view class="card trend-card {{trendExpanded ? 'trend-card--expanded' : 'trend-card--compact'}}">
+      <view class="trend-card__head" bindtap="toggleTrend" hover-class="control-pressed" hover-stay-time="80"><view><text class="section-kicker">计划执行率变化</text><text class="trend-card__title">{{periodType === 'week' ? '最近 8 周' : '最近 6 个月'}}</text></view><view wx:if="{{summary.trendReady}}" class="trend-card__action">{{trendExpanded ? '收起' : '展开'}}<view class="trend-card__chevron {{trendExpanded ? 'trend-card__chevron--up' : ''}}"></view></view><text wx:else class="trend-card__pending">{{summary.trendActiveCount}} / 2 期</text></view>
+      <view wx:if="{{!summary.trendReady}}" class="trend-progress"><text>{{summary.trendActiveCount ? '再积累一个有操作的周期，就能查看变化。' : '积累两个有操作的周期，就能查看变化。'}}</text></view>
+      <view wx:elif="{{!trendExpanded}}" class="trend-compact"><trend-chart suspended="{{detailOpen}}" id="trendPreviewChart" class="trend-preview__component" points-json="{{trendPointsJson}}" compact /><text>{{summary.trendSmallSample ? '部分周期操作较少，比例变化暂不代表稳定改善。' : summary.trendInsight}}</text></view>
+      <block wx:else><text class="trend-definition">点选日期，切换上方复盘。无操作的周期不计入比例。</text><trend-chart suspended="{{detailOpen}}" id="trendFullChart" class="trend-full__component" points-json="{{trendPointsJson}}" selected-period-id="{{selectedPeriodId}}" interactive bind:select="selectTrendPeriod" /><view class="trend-selection"><text class="trend-selection__date">{{periodLabel}}</text><text class="trend-selection__value">按计划 {{summary.plannedCount}} / {{summary.eventCount}} 次</text><view class="trend-selection__links"><text bindtap="viewSelectedReview">查看这个周期 ↑</text></view></view><text class="trend-definition">计划执行率 = 按计划操作次数 ÷ 已执行操作次数。</text></block>
+    </view>
 
-        <view class="stats">
-          <view class="stat-card" data-metric="impulsive" bindtap="openMetricDetail" hover-class="metric-card--pressed"><text class="stat-card__value">{{summary.impulsiveCount}}</text><text class="stat-card__label">临时决定 <text>›</text></text></view>
-          <view class="stat-card" data-metric="reviewed" bindtap="openMetricDetail" hover-class="metric-card--pressed"><text class="stat-card__value">{{summary.reviewedCount}}</text><text class="stat-card__label">完成回看 <text>›</text></text></view>
-          <view class="stat-card" data-metric="regret" bindtap="openMetricDetail" hover-class="metric-card--pressed"><text class="stat-card__value">{{summary.regretCount}}</text><text class="stat-card__label">当前懊悔 <text>›</text></text></view>
-        </view>
-
-        <view class="card pattern-card">
-          <view class="pattern-card__head"><view class="pattern-card__mark"><view></view><view></view><view></view></view><text class="section-kicker">{{viewingHistory ? '这个周期出现的模式' : (periodType === 'week' ? '本周出现的模式' : '本月出现的模式')}}</text></view>
-          <text class="pattern-card__title">{{summary.pattern}}</text>
-          <view class="pattern-card__meta"><text>回看率 {{summary.reviewRate}}%</text><text wx:if="{{summary.changedFeelingCount}}">{{summary.changedFeelingCount}} 次感受发生变化</text><text wx:else>继续记录，模式会更清楚</text></view>
-        </view>
-
-        <view wx:if="{{summary.reasonDistributionReady}}" class="card reason-card">
-          <view class="reason-card__head"><view><text class="section-kicker">操作原因</text><text class="reason-card__title">最常出现的三个原因</text></view><text>{{summary.eventCount}} 次操作</text></view>
-          <view class="reason-list">
-            <view wx:for="{{summary.reasonDistribution}}" wx:key="key" class="reason-row" data-key="{{item.key}}" data-label="{{item.label}}" bindtap="openReasonDetail" hover-class="reason-row--pressed">
-              <view class="reason-row__copy"><text>{{item.label}}</text><text>{{item.count}} 次 · {{item.percentage}}%</text></view>
-              <view class="reason-row__line"><view style="width: {{item.percentage}}%"></view></view>
-              <text class="reason-row__arrow">›</text>
-            </view>
-          </view>
-        </view>
+    <view wx:if="{{summary.reasonDistributionReady || summary.eventCount >= 5}}" class="card review-analysis">
+      <view class="review-analysis__head" bindtap="toggleAnalysis" role="button" hover-class="control-pressed" hover-stay-time="80"><text>更多行为细节</text><text>{{analysisExpanded ? '收起 ⌃' : '展开 ⌄'}}</text></view>
+      <block wx:if="{{analysisExpanded}}">
+        <view wx:if="{{summary.eventCount >= 5}}" class="review-observation"><text class="section-kicker">这个周期的观察</text><text>{{summary.pattern}}</text><text class="review-summary__hint">回看率 {{summary.reviewRate}}%{{summary.changedFeelingCount ? ' · ' + summary.changedFeelingCount + ' 次感受变化' : ''}}</text></view>
+        <text wx:else class="review-summary__hint">目前只有 {{summary.eventCount}} 次操作，暂不归纳行为模式。</text>
+        <view wx:if="{{summary.reasonDistributionReady}}" class="reason-list"><text class="section-kicker">常见操作原因</text><view wx:for="{{summary.reasonDistribution}}" wx:key="key" class="reason-row" data-key="{{item.key}}" data-label="{{item.label}}" bindtap="openReasonDetail" hover-class="control-pressed" hover-stay-time="80"><view class="reason-row__copy"><text>{{item.label}}</text><text>{{item.count}} 次 · {{item.percentage}}%</text></view><view class="reason-row__line"><view style="width:{{item.percentage}}%"></view></view><text class="reason-row__arrow">›</text></view></view>
+        <view wx:if="{{summary.eventCount >= 5 && summary.changeClueReady}}" class="review-observation"><text class="section-kicker">变化线索</text><text>{{summary.changeClue}}</text><text class="review-summary__hint">行为关联，不代表因果。</text></view>
       </block>
-
-      <view wx:else class="card state-card state-card--period-empty">
-        <state-view type="empty" title="{{periodType === 'week' ? '这一周很安静' : '这个月还没有操作'}}" description="没有交易，就不用为了复盘而复盘。趋势会保留过去有记录的周期。" />
-      </view>
-
-      <view class="card trend-card {{trendExpanded ? 'trend-card--expanded' : 'trend-card--compact'}}">
-        <view class="trend-card__head" bindtap="toggleTrend">
-          <view><text class="section-kicker">计划执行率趋势</text><text class="trend-card__title">{{periodType === 'week' ? '最近 8 周' : '最近 6 个月'}}</text></view>
-          <view wx:if="{{summary.trendReady}}" class="trend-card__action">{{trendExpanded ? '收起' : '展开'}}<view class="trend-card__chevron {{trendExpanded ? 'trend-card__chevron--up' : ''}}"></view></view>
-          <text wx:else class="trend-card__pending">{{summary.trendActiveCount}} / 2 期</text>
-        </view>
-
-        <view wx:if="{{showTrendGuide}}" class="trend-guide" catchtap="dismissTrendGuide"><view class="trend-guide__mark">✓</view><view><text>你的趋势刚刚长出来了</text><text>它只比较计划执行率，不评价收益。</text></view><text>知道了</text></view>
-
-        <block wx:if="{{!summary.trendReady}}">
-          <view class="trend-progress"><view class="trend-progress__track"><view style="width: {{summary.trendProgress}}%"></view></view><text>再有一个有操作的周期，就能生成趋势</text></view>
-        </block>
-
-        <block wx:elif="{{!trendExpanded}}">
-          <view class="trend-preview">
-            <view class="trend-preview__value"><view><text>{{summary.trendCurrentValue}}</text><text>%</text></view><text>最近有记录的周期</text></view>
-            <view class="trend-preview__chart"><trend-chart suspended="{{detailOpen}}" id="trendPreviewChart" class="trend-preview__component" points-json="{{trendPointsJson}}" compact /></view>
-          </view>
-          <text class="trend-preview__insight">{{summary.trendInsight}}</text>
-        </block>
-
-        <block wx:else>
-          <view class="trend-card__legend"><view></view><text>点选下方日期，切换复盘</text></view>
-          <trend-chart suspended="{{detailOpen}}" id="trendFullChart" class="trend-full__component" points-json="{{trendPointsJson}}" selected-period-id="{{selectedPeriodId}}" interactive bind:select="selectTrendPeriod" />
-          <view class="trend-selection">
-            <text class="trend-selection__date">{{periodLabel}}</text>
-            <text class="trend-selection__value">按计划 {{summary.plannedCount}} / {{summary.eventCount}} 次 · {{summary.disciplineScore}}%</text>
-            <view class="trend-selection__links"><text bindtap="viewSelectedReview">查看{{periodType === 'week' ? '这周' : '这个月'}}复盘 ↑</text><text data-metric="planned" bindtap="openMetricDetail">按计划记录 ›</text></view>
-          </view>
-          <text class="trend-definition">计划执行率 = 按计划操作次数 ÷ 已执行操作次数。</text>
-          <view class="trend-card__insight"><view class="trend-card__spark">↗</view><text>最近一期：{{summary.trendInsight}}</text></view>
-        </block>
-      </view>
-
-      <view wx:if="{{summary.changeClueReady}}" class="card clue-card">
-        <view class="clue-card__icon"><view></view><view></view><view></view></view>
-        <view class="clue-card__copy"><text class="section-kicker">变化线索</text><text class="clue-card__text">{{summary.changeClue}}</text><text class="clue-card__hint">这是行为关联，不代表因果。</text></view>
-      </view>
-
-      <block wx:if="{{periodType === 'week' && summary.eventCount && !viewingHistory}}">
-        <view class="focus-head"><view><text class="section-kicker">给下周留一句话</text><text class="focus-title">最想少做哪一件事？</text></view><text class="focus-head__hint">只选一条</text></view>
-        <view class="focus-list">
-          <view wx:for="{{summary.focuses}}" wx:key="key" class="focus-choice {{selectedFocus === item.key ? 'focus-choice--selected' : ''}} {{focusSaving ? 'focus-choice--saving' : ''}}" data-key="{{item.key}}" bindtap="chooseFocus">
-            <view class="focus-choice__radio"><view wx:if="{{selectedFocus === item.key}}"></view></view><text>{{item.label}}</text><text class="focus-choice__arrow">›</text>
-          </view>
-        </view>
-      </block>
-    </block>
-
-    <view wx:else class="card state-card">
-      <state-view type="error" title="复盘暂时没生成" description="记录不会丢失，稍后再试一次" action-text="重新整理" bind:action="retry" />
     </view>
-  </view>
-
-  <view wx:if="{{detailOpen}}" class="detail-overlay" catchtouchmove="preventTouchMove" catchtap="closeDetail">
+  </block>
+  <view wx:else class="card state-card"><state-view type="error" title="复盘暂时没生成" action-text="重新整理" bind:action="retry" compact /></view>
+</view>
+<root-portal>  <view wx:if="{{detailOpen}}" class="detail-overlay ui-portal" catchtouchmove="preventTouchMove" catchtap="closeDetail">
     <view class="detail-sheet" catchtap="stopPropagation">
       <view class="detail-sheet__handle"></view>
       <view class="detail-sheet__head">
         <view><text class="section-kicker">{{periodLabel}}</text><text class="detail-sheet__title">{{detailTitle}}</text></view>
-        <view class="detail-sheet__close" bindtap="closeDetail">×</view>
+        <view class="detail-sheet__close" bindtap="closeDetail" hover-class="control-pressed" hover-stay-time="80">×</view>
       </view>
       <view wx:if="{{detailLoading}}" class="detail-sheet__state"><view class="detail-sheet__loading"></view><text>正在翻开对应记录</text></view>
       <view wx:elif="{{detailError}}" class="detail-sheet__state"><text>这组记录暂时没打开</text><text class="detail-sheet__retry" bindtap="retryDetail">重新加载</text></view>
-      <view wx:elif="{{!detailItems.length}}" class="detail-sheet__state"><text>这个周期没有对应记录</text><text>数字为 0 时，这里保持为空。</text></view>
+      <view wx:elif="{{!detailItems.length}}" class="detail-sheet__state"><text>这个周期没有对应记录</text></view>
       <scroll-view wx:else class="detail-list" scroll-y enhanced show-scrollbar="{{false}}">
         <view wx:for="{{detailItems}}" wx:key="_id" class="detail-item" data-id="{{item._id}}" bindtap="openDetailRecord" hover-class="detail-item--pressed">
           <view class="detail-item__head"><view class="detail-item__identity"><text>{{item.symbol}}</text><text class="action-tag action-tag--{{item.action}}">{{item.action_label}}</text></view><text>{{item.created_label}}</text></view>
@@ -130,4 +58,5 @@
       </scroll-view>
     </view>
   </view>
+</root-portal>
 </view>

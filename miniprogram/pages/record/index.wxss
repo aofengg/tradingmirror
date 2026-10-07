@@ -77,3 +77,9 @@
 .receipt-card__correct { min-height: 60rpx; display: flex; align-items: center; color: var(--color-primary); font-size: var(--font-size-2xs); font-weight: 650; }
 .intent-note { display: block; max-width: 560rpx; margin-top: 27rpx; color: var(--color-text-secondary); font-size: var(--font-size-xs); line-height: 1.7; }
 .complete-button { width: 100%; margin-top: auto; }
+
+.record-title { font-size:40rpx; }.progress { margin:18rpx 13rpx 24rpx; }.back-link { min-height:88rpx; }.record-body { margin-top:26rpx; }.completion-context { display:flex;align-items:center;justify-content:center;min-height:88rpx;margin-top:16rpx;color:var(--color-primary);font-size:24rpx; }.reason-row { min-height:88rpx; }.receipt-card__correct { min-height:88rpx;display:flex;align-items:center; }.complete-title { font-size:40rpx; }.intent-note { font-size:24rpx; }
+
+.complete-page { min-height:calc(100vh - env(safe-area-inset-bottom) - 54rpx); }.choice-pill { min-height:88rpx; }.draft-banner__clear { min-height:88rpx;display:flex;align-items:center; }.guide-tip { padding-right:88rpx; }.guide-tip__close { width:88rpx;height:88rpx; }
+
+.record-body { margin-top:0;padding-top:26rpx; }.record-nav__stage { max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }.complete-title { margin-top:24rpx; }

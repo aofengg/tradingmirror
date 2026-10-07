@@ -175,3 +175,7 @@ button::after { border: 0; }
   color: var(--color-primary);
   font-weight: 600;
 }
+
+.control-pressed { opacity:.65; }
+
+.page { padding-bottom:calc(var(--tab-bar-height) + env(safe-area-inset-bottom) + 54rpx); }

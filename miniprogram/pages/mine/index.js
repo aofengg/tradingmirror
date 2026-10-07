@@ -1,11 +1,7 @@
-var userService = require('../../services/user-service');
 var share = require('../../utils/share');
 
 Page({
-  data: {
-    currentFocus: null,
-    recentSymbols: []
-  },
+  data: {},
 
   onLoad: function () {
     share.enable();
@@ -16,20 +12,6 @@ Page({
       var tabBar = this.getTabBar();
       if (tabBar) tabBar.setData({ selected: 3 });
     }
-    this._loadConfig();
-  },
-
-  _loadConfig: function () {
-    var self = this;
-    getApp().waitForLogin().then(function () {
-      return userService.getConfig();
-    }).then(function (res) {
-      if (!res.success) return;
-      self.setData({
-        currentFocus: res.data.current_focus || null,
-        recentSymbols: res.data.recent_symbols || []
-      });
-    });
   },
 
   showDataNotice: function () {
@@ -43,13 +25,13 @@ Page({
   showAbout: function () {
     wx.showModal({
       title: '关于交易留痕',
-      content: '面向业余交易者的极简交易行为记录与复盘工具。只记录决策和感受，不提供投资建议。',
+      content: '记下交易决定与后来的感受，帮助你回看自己的行为。只记录决策和感受，不提供投资建议。',
       showCancel: false
     });
   },
 
-  openReview: function () {
-    wx.switchTab({ url: '/pages/review/index' });
+  showUsage: function () {
+    wx.showModal({title:'怎么使用',content:'准备操作或刚刚操作时，用三步记下标的、动作和原因。\n\n操作前的想法，之后在今日确认是否执行。\n\n从待回看记录进入，留下此刻的感受；每次回看都会保留。',showCancel:false,confirmText:'知道了'});
   },
 
   onShareAppMessage: function () {

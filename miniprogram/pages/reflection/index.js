@@ -1,3 +1,4 @@
+var assetService = require('../../services/asset-service');
 var tradeService = require('../../services/trade-service');
 var tradeOptions = require('../../config/trade-options');
 var toast = require('../../utils/toast');
@@ -18,7 +19,8 @@ Page({
     completed: false,
     eventSupplementExpanded: false,
     showReflectionGuide: false,
-    sharedEntry: false
+    sharedEntry: false,
+    mode: 'detail', historyExpanded: false, contextExpanded: false, loadError: false, reviewFromDetail: false
   },
 
   onLoad: function (options) {
@@ -28,12 +30,17 @@ Page({
       this.setData({ id: '', loading: false, sharedEntry: true });
       return;
     }
-    this.setData({ id: id });
+    this._version=0;this._alive=true;
+    this.setData({ id: id, mode: options.mode === 'review' ? 'review' : 'detail', historyExpanded:options.mode!=='review', eventSupplementExpanded:options.mode!=='review' });
+    this._setTitle();
     this._loadEvent();
   },
 
   _loadEvent: function () {
     var self = this;
+    var version=++this._version;
+    var revision=getApp().getPageRevision('records');
+    self.setData({loading:!self.data.event,loadError:false});
     getApp().waitForLogin().then(function () {
       return Promise.all([
         tradeService.getEvent(self.data.id),
@@ -41,20 +48,52 @@ Page({
         userService.getConfig()
       ]);
     }).then(function (results) {
+      if(!self._alive||version!==self._version)return;
       if (!results[0].success || !results[1].success) throw new Error('LOAD_FAILED');
+      if(!results[0].data)throw new Error('NOT_FOUND');
       self.setData({
         loading: false,
         event: results[0].data,
         reflections: results[1].data,
         showReflectionGuide: results[2].success && userService.hasGuideStep('welcome', results[2].data) && !userService.hasGuideStep('reflection_context', results[2].data)
       });
+      self._loadedRevision=revision;
     }).catch(function () {
-      self.setData({ loading: false });
+      if(!self._alive||version!==self._version)return;
+      self.setData({ loading: false, loadError: true });
       toast.showError('这条记录暂时打不开');
     });
   },
 
+  onShow: function () { if(this.data.event && this._loadedRevision!==getApp().getPageRevision('records') && !this.data.completed)this._loadEvent(); },
+  onUnload: function () { this._alive=false;this._version++; },
+  retry: function () { this._loadEvent(); },
+  _setTitle: function () { wx.setNavigationBarTitle({title:this.data.mode==='review'?'回看这次操作':'记录详情'}); },
+  startReview: function () {
+    if(this.data.saving||!this.data.event||this.data.event.execution_status!=='executed')return;
+    this.setData({mode:'review',feeling:'',historyExpanded:false,eventSupplementExpanded:false,contextExpanded:false,reviewFromDetail:true});this._setTitle();wx.pageScrollTo({scrollTop:0,duration:0});
+  },
+  leaveReview: function () { if(this.data.saving)return;this.setData({mode:'detail',feeling:'',historyExpanded:true,eventSupplementExpanded:true});this._setTitle();wx.pageScrollTo({scrollTop:0,duration:0}); },
+  toggleHistory: function () { this.setData({historyExpanded:!this.data.historyExpanded}); },
+  toggleContext: function () { var history=this.selectComponent('#relatedHistory');if(history)history.open(); },
+
+  openAsset: function () {
+    if(this.data.event)assetService.open(assetService.keyFor(this.data.event));
+  },
+
+  confirmExecution: function (event) {
+    if(this.data.saving || !this.data.event || this.data.event.execution_status !== 'pending')return;
+    var self=this;var status=event.currentTarget.dataset.status;
+    if(status !== 'executed' && status !== 'cancelled')return;
+    self.setData({saving:true});
+      tradeService.markExecution(self.data.id,status).then(function(result){
+        if(!result.success)throw new Error(result.error);
+        self.setData({saving:false});getApp().invalidatePages(['today','records','review']);self._loadEvent();
+      }).catch(function(){self.setData({saving:false});toast.showError('暂时没能更新');});
+  },
+
   chooseFeeling: function (event) {
+    if(this.data.mode!=='review'||this.data.saving)return;
     var feeling = event.currentTarget.dataset.feeling;
     this.setData({ feeling: feeling });
     if (feeling !== 'regret') this._save(feeling, '');
@@ -65,7 +104,7 @@ Page({
   },
 
   _save: function (feeling, regretReason) {
-    if (this.data.saving) return;
+    if (this.data.mode!=='review'||this.data.saving || !this.data.event || this.data.event.execution_status !== 'executed') return;
     var self = this;
     if (!self._submissionRequestId) self._submissionRequestId = requestId.create('reflection');
     self.setData({ saving: true });
@@ -89,6 +128,7 @@ Page({
   },
 
   finish: function () {
+    if(this.data.reviewFromDetail){this.setData({completed:false,mode:'detail',feeling:'',historyExpanded:true,eventSupplementExpanded:true});this._setTitle();this._loadEvent();wx.pageScrollTo({scrollTop:0,duration:0});return;}
     wx.navigateBack();
   },
 
@@ -125,12 +165,14 @@ Page({
       event: Object.assign({}, this.data.event, event.detail),
       eventSupplementExpanded: true
     });
+    getApp().invalidatePages(['today','records','review']);this._loadedRevision=getApp().getPageRevision('records');
   },
 
   onReflectionSupplementSaved: function (event) {
     var list = this.data.reflections.slice();
     if (list.length) list[0] = Object.assign({}, list[0], event.detail);
     this.setData({ reflections: list });
+    getApp().invalidatePages(['today','records','review']);this._loadedRevision=getApp().getPageRevision('records');
   },
 
   cancelRegret: function () {

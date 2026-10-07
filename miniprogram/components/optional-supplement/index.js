@@ -43,20 +43,7 @@ function normalizedError(error) {
 }
 
 function showFailure(failure) {
-  var needsTrace = failure.traceId || /^DATABASE_|^FUNCTION_|^CLOUD_INTERNAL/.test(failure.code);
-  if (!needsTrace) {
-    wx.showToast({ title: ERROR_MESSAGES[failure.code], icon: 'none' });
-    return;
-  }
-  var lines = [ERROR_MESSAGES[failure.code], '错误码：' + failure.code];
-  if (failure.platformCode) lines.push('平台码：' + failure.platformCode);
-  if (failure.traceId) lines.push('追踪编号：' + failure.traceId);
-  wx.showModal({
-    title: '内容保存失败',
-    content: lines.join('\n'),
-    showCancel: false,
-    confirmText: '知道了'
-  });
+  wx.showToast({ title: ERROR_MESSAGES[failure.code], icon: 'none', duration:2500 });
 }
 
 Component({
@@ -81,6 +68,10 @@ Component({
 
   methods: {
     open: function () {
+      if(this.data.saving || this.data.expanded)return;
+      var identity=JSON.stringify([this.properties.entityType,this.properties.entityId,this.properties.note,this.properties.attachments]);
+      if(identity===this._draftIdentity){this.setData({expanded:true});return;}
+      this._draftIdentity=identity;
       var list = (this.properties.attachments || []).map(function (item) {
         return Object.assign({}, item, { preview_url: item.file_id });
       });
@@ -93,17 +84,20 @@ Component({
 
     close: function () {
       if (this.data.saving) return;
+      wx.hideKeyboard();
       this.setData({ expanded: false });
     },
 
     stop: function () {},
 
     onNoteInput: function (event) {
+      if(this.data.saving)return;
       this.setData({ draftNote: event.detail.value });
     },
 
     chooseImages: function () {
       var self = this;
+      if(self.data.saving)return;
       var remain = attachment.MAX_IMAGE_COUNT - self.data.draftAttachments.length;
       if (remain <= 0) return;
       wx.chooseMedia({
@@ -125,15 +119,24 @@ Component({
     },
 
     removeImage: function (event) {
+      if(this.data.saving)return;
       var index = Number(event.currentTarget.dataset.index);
       var list = this.data.draftAttachments.slice();
       list.splice(index, 1);
       this.setData({ draftAttachments: list });
     },
 
+    previewDraftImage: function (event) {
+      var current=event.currentTarget.dataset.src;
+      var urls=this.data.draftAttachments.map(function(item){return item.preview_url||item.file_id;}).filter(Boolean);
+      if(current&&urls.length)wx.previewImage({current:current,urls:urls});
+    },
+
     save: function () {
       var self = this;
       if (self.data.saving || !self.properties.entityId) return;
+      var original=self.properties.attachments||[],draft=self.data.draftAttachments;
+      if(self.data.draftNote===(self.properties.note||'')&&draft.length===original.length&&draft.every(function(item,index){return !item.local&&item.file_id===original[index].file_id;})){self.close();return;}
       self.setData({ saving: true });
       var existing = self.data.draftAttachments.filter(function (item) { return !item.local; });
       var local = self.data.draftAttachments.filter(function (item) { return item.local; });
@@ -156,6 +159,7 @@ Component({
         }).then(function (res) {
           if (!res.success) throw saveError(res);
           var saved = res.data;
+          self._draftIdentity='';
           self.setData({ saving: false, expanded: false, draftAttachments: saved.attachments || [] });
           self.triggerEvent('saved', saved);
           wx.showToast({ title: '补充已保存', icon: 'success' });

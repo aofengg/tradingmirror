@@ -1,0 +1,32 @@
+const assert=require('assert'),fs=require('fs'),vm=require('vm');
+const tick=()=>new Promise(setImmediate);
+function page(file,deps,extras={}){let definition;vm.runInNewContext(fs.readFileSync('miniprogram/'+file,'utf8'),Object.assign({Page:d=>definition=d,require:name=>deps(name),console,setTimeout,clearTimeout},extras));return Object.assign({},definition,{data:JSON.parse(JSON.stringify(definition.data)),setData(patch,cb){Object.assign(this.data,patch);if(cb)cb();}});}
+(async()=>{
+ const nav=[],writes=[];let revision=0;
+ const app={globalData:{},getPageRevision:()=>revision,invalidatePages:()=>revision++,waitForLogin:()=>Promise.resolve()};
+ const wx={navigateTo:o=>nav.push(o.url),navigateBack:()=>nav.push('back'),setNavigationBarTitle(){},pageScrollTo(){},showToast(){}};
+ const common=n=>n.includes('constants')?{ROUTES:{REFLECTION:'/pages/reflection/index'}}:n.includes('share')?{enable(){}}:{};
+ const records=page('pages/records/index.js',n=>n.includes('trade-service')?{markExecution:(...args)=>writes.push(args)}:common(n),{wx,getApp:()=>app});
+ for(const status of ['pending','executed','cancelled'])records.openReflection({currentTarget:{dataset:{id:'a&b',status}}});
+ assert.equal(nav.length,3);assert(nav.every(url=>url==='/pages/reflection/index?id=a%26b&mode=detail'));assert.equal(writes.length,0,'browsing any status must never write execution state');
+ records.startReview({currentTarget:{dataset:{id:'r'}}});assert(nav.pop().endsWith('&mode=review'));
+ let saves=0,resolveSave;
+ const trade={addReflection:()=>{saves++;return new Promise(r=>resolveSave=r);},getEvent:()=>Promise.resolve({success:true,data:{_id:'r',symbol:'RKLB',execution_status:'executed'}}),getReflectionsForTrade:()=>Promise.resolve({success:true,data:[]})};
+ const reflection=page('pages/reflection/index.js',n=>n.includes('trade-service')?trade:n.includes('trade-options')?{FEELINGS:[],REGRET_REASONS:[]}:n.includes('user-service')?{getConfig:()=>Promise.resolve({success:false}),hasGuideStep:()=>false,markGuideStep(){}}:n.includes('request-id')?{create:()=> 'one'}:common(n),{wx,getApp:()=>app});
+ reflection.data.event={_id:'r',execution_status:'executed'};reflection.data.id='r';
+ reflection.chooseFeeling({currentTarget:{dataset:{feeling:'satisfied'}}});assert.equal(saves,0,'viewing details cannot accidentally add a feeling');
+ reflection.startReview();assert.equal(reflection.data.mode,'review');assert(reflection.data.reviewFromDetail);
+ reflection.chooseFeeling({currentTarget:{dataset:{feeling:'satisfied'}}});reflection.chooseFeeling({currentTarget:{dataset:{feeling:'acceptable'}}});assert.equal(saves,1,'double tapping a feeling is one write');assert.equal(reflection.data.feeling,'satisfied');
+ resolveSave({success:true,data:{_id:'snapshot',feeling_label:'满意'}});await tick();assert(reflection.data.completed);assert.equal(reflection.data.reflections.length,1);
+ reflection._alive=true;reflection._version=0;reflection.finish();await tick();assert.equal(reflection.data.mode,'detail');assert(!reflection.data.completed);assert(!nav.includes('back'),'review started from detail returns to that detail');
+ reflection.data.reviewFromDetail=false;reflection.finish();assert.equal(nav.pop(),'back','review from a task returns to its caller');
+ let requests=[];
+ trade.getEvent=()=>new Promise(resolve=>requests.push(resolve));
+ reflection._loadEvent();await tick();reflection._loadEvent();await tick();
+ requests[1]({success:true,data:{_id:'new',symbol:'NEW',execution_status:'executed'}});await tick();requests[0]({success:true,data:{_id:'old',symbol:'OLD',execution_status:'executed'}});await tick();assert.equal(reflection.data.event.symbol,'NEW','late detail response cannot overwrite a newer load');
+ let overviewDefinition,reads=0;
+ vm.runInNewContext(fs.readFileSync('miniprogram/components/asset-overview/index.js','utf8'),{Component:d=>overviewDefinition=d,require:n=>n.includes('service')?{load:()=>{reads++;return Promise.resolve({events:[],reflections:[]});}}:{build:()=>[],layout:()=>({rows:[]})}});
+ const chart=Object.assign({data:Object.assign({},overviewDefinition.data,{assetKey:'stock'}),setData(p){Object.assign(this.data,p);}},overviewDefinition.methods);
+ overviewDefinition.lifetimes.attached.call(chart);assert.equal(reads,0,'collapsed overview does not read all stock history');chart.toggle();await tick();assert.equal(reads,1);chart.toggle();chart.toggle();await tick();assert.equal(reads,1,'reopening unchanged overview reuses its data');
+ console.log('UX flows: consistent detail routing, explicit review, single submission, caller return, stale response and lazy overview passed');
+})().catch(e=>{console.error(e);process.exitCode=1;});

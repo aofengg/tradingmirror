@@ -2,6 +2,7 @@ var tradeService = require('../../services/trade-service');
 var userService = require('../../services/user-service');
 var constants = require('../../config/constants');
 var share = require('../../utils/share');
+var assetService = require('../../services/asset-service');
 
 Page({
   data: {
@@ -26,7 +27,8 @@ Page({
     currentFocus: null,
     showWelcome: false,
     greeting: '',
-    dateLabel: ''
+    dateLabel: '',
+    todoTab: 'confirm', showIntentContext: false
   },
 
   onLoad: function () {
@@ -83,6 +85,8 @@ Page({
         pendingIntents: results[0].data.items,
         pendingIntentIndex: 0,
         pendingIntentCount: results[0].data.count,
+        todoTab: results[0].data.count && (self.data.todoTab === 'confirm' || !results[1].data.count) ? 'confirm' : 'review',
+        showIntentContext: false,
         intentSaving: false,
         intentLeaving: false,
         intentSwitching: false,
@@ -136,13 +140,25 @@ Page({
 
   openReflection: function () {
     if (!this.data.pending) return;
-    wx.navigateTo({ url: constants.ROUTES.REFLECTION + '?id=' + this.data.pending._id });
+    wx.navigateTo({ url: constants.ROUTES.REFLECTION + '?id=' + encodeURIComponent(this.data.pending._id) + '&mode=review' });
+  },
+
+  chooseTodoTab: function (event) { this.setData({todoTab:event.currentTarget.dataset.tab,showIntentContext:false}); },
+  toggleIntentContext: function () { var history=this.selectComponent('#relatedHistory');if(history)history.open(); },
+  openFocus: function () { getApp().globalData._reviewInitialSection='focus';wx.switchTab({url:'/pages/review/index'}); },
+  openAllTodos: function () { getApp().globalData._recordsInitialFilter='pending';getApp().globalData._recordsInitialTodoFilter='all';wx.switchTab({url:'/pages/records/index'}); },
+
+  openAssetHistory: function (event) {
+    var source = event.currentTarget.dataset.source;
+    var item = source === 'intent' ? this.data.pendingIntent : source === 'reflection' ? this.data.pending : null;
+    if (item && item.symbol) assetService.open(assetService.keyFor(item));
   },
 
   confirmIntent: function (event) {
     var self = this;
-    if (!self.data.pendingIntent || self.data.intentSaving) return;
+    if (!self.data.pendingIntent || self.data.intentSaving || self.data.intentSwitching) return;
     var status = event.currentTarget.dataset.status;
+    if (status !== 'executed' && status !== 'cancelled') return;
     var remaining = Math.max(0, Number(self.data.pendingIntentCount || 0) - 1);
     self.setData({ intentSaving: true });
     tradeService.markExecution(self.data.pendingIntent._id, status).then(function (res) {
@@ -167,6 +183,7 @@ Page({
       self.setData({
         pendingIntent: items[nextIndex],
         pendingIntentIndex: nextIndex,
+        showIntentContext: false,
         intentAnimation: 'page-in'
       });
     }, 160);

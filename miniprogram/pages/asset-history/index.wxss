@@ -1,0 +1,45 @@
+@import '../records/index.wxss';
+@import '../reflection/index.wxss';
+@import '../../styles/review-state.wxss';
+.asset-history-page { padding-bottom:calc(env(safe-area-inset-bottom) + 40rpx); }
+.asset-history-head { margin-top:6rpx; display:flex; align-items:center; gap:22rpx; justify-content:space-between; }
+.asset-history-head > view:first-child { flex:1; min-width:0; }
+.asset-history-head .page-title { margin-top:0; overflow-wrap:anywhere; }
+.asset-history-head__actions { display:flex; gap:8rpx; align-items:center; flex:none; }
+.asset-manage { display:flex; justify-content:center; align-items:center; width:60rpx; height:80rpx; color:var(--color-text-secondary); }
+.asset-summary { margin-top:22rpx; padding:20rpx 24rpx; }
+.asset-summary__compact { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12rpx 18rpx; }
+.asset-summary__latest { display:flex; align-items:center; gap:10rpx; flex-wrap:wrap; min-width:0; }
+.asset-summary__caption,.asset-summary__date,.asset-summary__mood { color:var(--color-text-secondary); font-size:21rpx; }
+.asset-summary__caption { font-weight:600; }
+.asset-summary__mood { display:flex; align-items:center; gap:8rpx; }
+.asset-summary__todos { display:flex; gap:24rpx; margin-top:14rpx; padding-top:8rpx; border-top:1rpx solid var(--color-border); color:var(--color-primary); font-size:var(--font-size-xs); }
+.asset-summary__todos view { display:flex; align-items:center; min-height:52rpx; }
+.asset-timeline-head { display:flex; align-items:center; justify-content:space-between; gap:16rpx; margin-top:30rpx; }
+.asset-timeline-head > view { min-height:66rpx; display:flex; align-items:center; flex:none; color:var(--color-primary); font-size:var(--font-size-xs); }
+.asset-timeline { margin-top:26rpx; padding-left:9rpx; }
+.asset-month { display:block; margin:26rpx 0 20rpx; color:var(--color-text-secondary); font-size:var(--font-size-xs); }
+.asset-event { flex:1; min-width:0; padding:23rpx; margin-bottom:20rpx; }
+.asset-event__head { display:flex; align-items:center; justify-content:space-between; gap:16rpx; }
+.asset-event__note { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; margin-top:12rpx; color:var(--color-text-secondary); font-size:var(--font-size-xs); line-height:1.6; }
+.asset-event__images { display:block; margin-top:8rpx; color:var(--color-primary); font-size:var(--font-size-2xs); }
+.asset-event__review { margin-top:20rpx; padding-top:16rpx; border-top:1rpx solid var(--color-border); font-size:var(--font-size-xs); color:var(--color-text-secondary); }
+.asset-event__review-count { display:block; margin-top:8rpx; }
+.asset-event__footer { margin-top:20rpx; display:flex; align-items:center; justify-content:space-between; gap:12rpx; color:var(--color-primary); font-size:var(--font-size-2xs); }
+.asset-return { color:var(--color-primary); font-size:var(--font-size-xs); padding:0 0 24rpx; min-height:66rpx; }
+.asset-overlay { position:fixed; inset:0; z-index:1000; display:flex; align-items:flex-end; background:rgba(22,35,29,.38); }
+.asset-sheet { width:100%; border-radius:36rpx 36rpx 0 0; background:var(--color-bg-page); padding:32rpx 30rpx calc(env(safe-area-inset-bottom) + 24rpx); }
+.asset-sheet__head,.asset-alias-item { display:flex; justify-content:space-between; align-items:center; gap:20rpx; }
+.asset-sheet__head > view { min-height:66rpx; display:flex; align-items:center; color:var(--color-primary); font-size:var(--font-size-xs); }
+.asset-sheet__list { max-height:55vh; height:540rpx; margin-top:16rpx; }
+.asset-alias-item { padding:25rpx 8rpx; border-bottom:1rpx solid var(--color-border); font-size:var(--font-size-sm); }
+.asset-alias-item text:first-child { min-width:0;flex:1;overflow-wrap:anywhere; }
+.asset-alias-item text:last-child { flex:none;color:var(--color-text-secondary);font-size:var(--font-size-xs); }
+
+.asset-event__statuses { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8rpx; }
+
+.asset-history-page { padding-top:26rpx; }.asset-history-head .page-title { font-size:42rpx; }.asset-manage { width:88rpx;height:88rpx; }.asset-timeline-head { margin-top:18rpx; }.asset-timeline-head > view { min-height:88rpx; }.asset-event { padding:20rpx 24rpx; }.asset-event__review { margin-top:12rpx;padding-top:10rpx; }.asset-event__footer { margin-top:12rpx;min-height:60rpx; }.asset-return { min-height:88rpx; }
+
+.asset-alias-item,.asset-sheet__head > view { min-height:88rpx; }
+
+.asset-sheet__head > view { min-height:88rpx;min-width:88rpx;display:flex;align-items:center;justify-content:flex-end; }.asset-return { min-height:88rpx;display:flex;align-items:center; }.asset-timeline-head > view { min-height:88rpx;display:flex;align-items:center; }

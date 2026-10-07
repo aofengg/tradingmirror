@@ -1,0 +1,6 @@
+<view wx:if="{{symbol}}" class="asset-context asset-context--compact">
+  <text wx:if="{{loading}}" class="asset-context__state">正在找回历史…</text>
+  <view wx:elif="{{failed}}" class="asset-context__state" bindtap="refresh" role="button" hover-class="control-pressed" hover-stay-time="80">历史暂时没打开，重试 ›</view>
+  <view wx:elif="{{summary}}" class="asset-context__link" bindtap="open" role="button" hover-class="control-pressed" hover-stay-time="80"><text>{{summary.last_executed ? '上次操作' : '上次想法'}}：{{summary.last.action_label}} · {{summary.last.execution_date}}</text><text>历史 {{summary.count}} ›</text></view>
+  <text wx:else class="asset-context__state">首次记录这个标的</text>
+</view>

@@ -7,7 +7,7 @@
       data-index="{{index}}"
       data-path="{{item.pagePath}}"
       bindtap="switchTab"
-    >
+     hover-class="control-pressed" hover-stay-time="80">
       <image class="tabbar__icon" src="{{selected === index ? item.activeIcon : item.icon}}" mode="aspectFit" />
       <text class="tabbar__text">{{item.text}}</text>
     </view>

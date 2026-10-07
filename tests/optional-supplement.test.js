@@ -20,7 +20,7 @@ assert.ok(component.indexOf("cloudApi.call('saveSupplement'") !== -1);
 assert.ok(component.indexOf("CLOUD_FUNCTION_CALL_FAILED: '连接云端失败，请检查网络'") !== -1);
 assert.ok(component.indexOf("console.error('[optional-supplement] save failed'") !== -1);
 assert.ok(component.indexOf("DATABASE_WRITE_FAILED: '内容写入失败，请稍后重试'") !== -1);
-assert.ok(component.indexOf("'追踪编号：' + failure.traceId") !== -1);
+assert.ok(component.indexOf("trace_id: failure.traceId") !== -1);
 assert.ok(cloud.indexOf('sanitizeAttachments') !== -1);
 assert.ok(cloud.indexOf('validAttachmentDate') !== -1);
 assert.ok(cloud.indexOf('updateSupplement') !== -1);

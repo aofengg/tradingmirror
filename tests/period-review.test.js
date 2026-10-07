@@ -23,7 +23,7 @@ assert.ok(page.indexOf('switchPeriod') !== -1);
 assert.ok(template.indexOf('周复盘') !== -1);
 assert.ok(template.indexOf('月复盘') !== -1);
 assert.ok(template.indexOf('trend-chart') !== -1);
-assert.ok(template.indexOf('再有一个有操作的周期，就能生成趋势') !== -1);
+assert.ok(template.indexOf('再积累一个有操作的周期') !== -1);
 assert.ok(template.indexOf('trend-card--compact') !== -1);
 assert.ok(page.indexOf('trendReady: activePoints.length >= 2') !== -1);
 assert.ok(page.indexOf('trendPointsJson: JSON.stringify(data.trend || [])') !== -1);
@@ -35,7 +35,7 @@ assert.ok(chart.indexOf("compact: { type: Boolean") !== -1);
 assert.ok(chart.indexOf('handleTap') !== -1);
 assert.ok(chart.indexOf("triggerEvent('select', point)") !== -1);
 assert.ok(chart.indexOf("ctx.setStrokeStyle('#2D8065')") !== -1);
-assert.ok(template.indexOf('reason-card') !== -1);
+assert.ok(template.indexOf('常见操作原因') !== -1);
 assert.ok(template.indexOf('变化线索') !== -1);
 
 console.log('period review tests passed');

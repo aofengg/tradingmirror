@@ -3,7 +3,7 @@
     <view class="record-head">
       <view class="record-nav">
         <view class="back-link" hover-class="back-link--pressed" bindtap="previousStep"><text class="back-link__arrow">‹</text><text>{{step === 1 ? '关闭' : '上一步'}}</text></view>
-        <text class="record-nav__stage">{{stageLabel}}</text>
+        <text class="record-nav__stage">{{step > 1 ? symbol + ' · ' : ''}}{{stageLabel}}</text>
       </view>
       <view class="progress">
         <view class="progress__item {{step >= 1 ? 'progress__item--active' : ''}}"><view>1</view><text>标的</text></view>
@@ -15,11 +15,11 @@
       <text class="record-title" wx:if="{{step === 1}}">这次关于哪只标的？</text>
       <text class="record-title" wx:elif="{{step === 2}}">你{{stage === 'before' ? '准备' : '刚刚'}}做什么？</text>
       <text class="record-title" wx:else>哪一个原因最重要？</text>
-      <text class="record-subtitle" wx:if="{{step === 1}}">选最近记录过的，或者输入代码与简称。</text>
+      <text class="record-subtitle" wx:if="{{step === 1}}">点选最近标的，或输入代码与简称。</text>
       <text class="record-subtitle" wx:elif="{{step === 2}}">只记录动作，不需要填写价格和仓位。</text>
-      <text class="record-subtitle" wx:else>只选一项。此刻的真实，比完整更重要。</text>
+      <text class="record-subtitle" wx:else>只选一项，点选后即保存。</text>
       <view wx:if="{{showRecordGuide && step === 1}}" class="guide-tip">
-        <view class="guide-tip__mark">1</view><text>只需选择标的、动作和最主要原因；价格、仓位与长篇分析都不是必填。</text><view class="guide-tip__close" bindtap="dismissRecordGuide">×</view>
+        <view class="guide-tip__mark">1</view><text>只需选择标的、动作和最主要原因；价格、仓位与长篇分析都不是必填。</text><view class="guide-tip__close" bindtap="dismissRecordGuide" hover-class="control-pressed" hover-stay-time="80">×</view>
       </view>
       <view wx:if="{{restoredDraft}}" class="draft-banner">
         <view class="draft-banner__dot"></view>
@@ -32,20 +32,22 @@
       <text wx:if="{{recentSymbols.length}}" class="field-label">最近使用</text>
       <scroll-view wx:if="{{recentSymbols.length}}" class="symbol-scroll" scroll-x enhanced show-scrollbar="{{false}}">
         <view class="symbol-list">
-          <view wx:for="{{recentSymbols}}" wx:key="*this" class="choice-pill {{symbol === item ? 'choice-pill--selected' : ''}}" data-symbol="{{item}}" bindtap="chooseSymbol">{{item}}</view>
+          <view wx:for="{{recentSymbols}}" wx:key="*this" class="choice-pill {{symbol === item ? 'choice-pill--selected' : ''}}" data-symbol="{{item}}" bindtap="chooseSymbol" hover-class="control-pressed" hover-stay-time="80">{{item}}</view>
         </view>
       </scroll-view>
       <text class="field-label field-label--input">股票代码或简称</text>
       <view class="symbol-input-shell {{symbol ? 'symbol-input-shell--filled' : ''}}">
         <text class="symbol-input-shell__mark">T</text>
-        <input class="symbol-input" value="{{symbolInput}}" maxlength="12" placeholder="例如 NVDA、苹果、腾讯" placeholder-class="symbol-input__placeholder" bindinput="onSymbolInput" />
+        <input class="symbol-input" value="{{symbolInput}}" maxlength="12" placeholder="例如 NVDA、苹果、腾讯" placeholder-class="symbol-input__placeholder" bindinput="onSymbolInput" confirm-type="next" bindconfirm="nextFromSymbol" />
         <view wx:if="{{symbol}}" class="symbol-input-shell__check">✓</view>
       </view>
+      <asset-context id="assetContext" symbol="{{symbol}}" asset-key="{{assetKey}}" compact bind:resolved="onAssetResolved" />
       <view class="record-spacer"></view>
       <view class="primary-button next-button {{!symbol ? 'primary-button--disabled' : ''}}" hover-class="{{symbol ? 'button-pressed' : ''}}" bindtap="nextFromSymbol">继续</view>
     </view>
 
     <view wx:elif="{{step === 2}}" class="record-body action-grid">
+      <asset-context id="assetContext" symbol="{{symbol}}" asset-key="{{assetKey}}" compact bind:resolved="onAssetResolved" />
       <view wx:for="{{actions}}" wx:key="key" class="action-card action-card--{{item.tone}}" data-action="{{item.key}}" hover-class="action-card--pressed" bindtap="chooseAction">
         <image class="action-card__icon" src="{{item.icon}}" mode="aspectFit" />
         <view class="action-card__copy"><text class="action-card__title">{{item.label}}</text><text class="action-card__hint">{{item.hint}}</text></view>
@@ -55,6 +57,7 @@
 
     <view wx:else class="record-body reason-body">
       <view class="context-strip"><text>{{symbol}}</text><text>·</text><text>{{actionLabel}}</text></view>
+      <asset-context id="assetContext" symbol="{{symbol}}" asset-key="{{assetKey}}" compact bind:resolved="onAssetResolved" />
       <view class="reason-list">
         <view wx:for="{{reasons}}" wx:key="key" class="reason-row" data-reason="{{item.key}}" hover-class="reason-row--pressed" bindtap="chooseReason">
           <view class="reason-row__radio"></view>
@@ -62,13 +65,13 @@
           <text class="reason-row__arrow">›</text>
         </view>
       </view>
-      <view wx:if="{{saving}}" class="saving-mask"><view class="saving-mask__spinner"></view><text>正在妥善记下</text></view>
+      <view wx:if="{{saving}}" class="saving-mask"><view class="saving-mask__spinner"></view><text>正在保存…</text></view>
     </view>
   </block>
 
   <view wx:else class="complete-page">
     <view class="complete-orbit"><view class="complete-mark">✓</view></view>
-    <text class="complete-eyebrow">已留下这次决定</text>
+
     <text class="complete-title">记录完成</text>
     <view class="receipt-card">
       <view class="receipt-card__top"><text class="receipt-card__symbol">{{createdEvent.symbol}}</text><text class="action-tag action-tag--{{createdEvent.action}}">{{createdEvent.action_label}}</text></view>
@@ -77,13 +80,13 @@
       <text class="receipt-card__reason">“{{createdEvent.reason_label}}”</text>
       <view class="receipt-card__footer"><text class="pill {{planStatus === 'impulsive' ? 'pill--warm' : ''}}">{{planLabel}}</text><text class="receipt-card__correct" bindtap="correctPlanStatus">归类不准？更正</text></view>
     </view>
-    <related-history id="relatedHistory" wx:if="{{stage === 'before'}}" source="{{createdEvent}}" preview />
+    <view wx:if="{{stage === 'before'}}" class="completion-context" bindtap="toggleCompletionContext" hover-class="control-pressed" hover-stay-time="80">查看相似决定 ›</view><related-history id="relatedHistory" source="{{createdEvent}}" sheet-only />
     <optional-supplement entity-type="trade_event" entity-id="{{createdEvent._id}}" note="{{createdEvent.optional_note}}" attachments="{{createdEvent.attachments}}" trigger-text="补充这次操作" sheet-title="为这次操作多留一点" placeholder="例如当时看到的信息、仓位顾虑……" bind:saved="onSupplementSaved" />
     <view wx:if="{{showCompletionGuide}}" class="guide-tip guide-tip--complete">
-      <view class="guide-tip__mark">2</view><text>下一步不是判断赚亏。等首页出现“可以回看了”，再留下那时的真实感受。</text><view class="guide-tip__close" bindtap="dismissCompletionGuide">×</view>
+      <view class="guide-tip__mark">2</view><text>下一步不是判断赚亏。等今日出现“待回看”，再留下那时的真实感受。</text><view class="guide-tip__close" bindtap="dismissCompletionGuide" hover-class="control-pressed" hover-stay-time="80">×</view>
     </view>
-    <text wx:if="{{stage === 'before'}}" class="intent-note">这是一条操作意图。完成下单后，首页会请你确认是否真的执行。</text>
-    <text wx:else class="intent-note">过一段时间再回来，只记录你对这次操作的真实感受。</text>
-    <view class="primary-button complete-button" hover-class="button-pressed" bindtap="finish">回到首页</view>
+    <text wx:if="{{stage === 'before'}}" class="intent-note">已保存为待确认想法。操作后回到今日，确认是否执行。</text>
+    <text wx:else class="intent-note">已记录这次操作，稍后可从今日回看。</text>
+    <view class="primary-button complete-button" hover-class="button-pressed" bindtap="finish">{{finishLabel}}</view>
   </view>
 </view>

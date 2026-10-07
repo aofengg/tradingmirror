@@ -1,5 +1,6 @@
 const cloud = require('wx-server-sdk');
 const crypto = require('crypto');
+const assetTracking = require('./asset-tracking');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -968,6 +969,57 @@ async function migrateUserData(openid) {
   });
 }
 
+async function readAssetEvents(openid) {
+  // Keyset scan across the user's entire history; never truncate at the first page.
+  let lastId = ''; let items = [];
+  while (true) {
+    const where = { _openid: openid, is_deleted: false };
+    if (lastId) where._id = command.gt(lastId);
+    const result = await db.collection(COLLECTIONS.EVENTS).where(where).orderBy('_id', 'asc').limit(100).get();
+    const batch = result.data || [];
+    items = items.concat(batch);
+    if (batch.length < 100) return items;
+    lastId = batch[batch.length - 1]._id;
+  }
+}
+
+function assetLinks(config) {
+  const links = {};
+  (Array.isArray(config.asset_links) ? config.asset_links : []).forEach(item => {
+    if (assetTracking.parse(item.source) && assetTracking.parse(item.target)) links[item.source] = item.target;
+  });
+  return links;
+}
+
+async function assetRequest(openid, action, payload) {
+  if (payload.key && !assetTracking.parse(payload.key)) return fail('INVALID_ASSET');
+  const config = await ensureUserConfig(openid);
+  const events = await readAssetEvents(openid);
+  const links = assetLinks(config);
+  if (action === 'mergeAsset' || action === 'undoAssetMerge') {
+    return db.runTransaction(async transaction => {
+      const stored = await transaction.collection(COLLECTIONS.CONFIG).doc(config._id).get();
+      const current = assetLinks(stored.data);
+      let next;
+      if (action === 'mergeAsset') {
+        const groups = assetTracking.build(events, current, Date.now());
+        try { next = assetTracking.merge(current, payload.source, payload.target, groups); }
+        catch (error) { return fail(error.message); }
+      } else {
+        if (!payload.source || current[payload.source] !== payload.target) return fail('ASSET_CHANGED');
+        next = Object.assign({}, current); delete next[payload.source];
+      }
+      await transaction.collection(COLLECTIONS.CONFIG).doc(config._id).update({data:{asset_links:Object.keys(next).map(source => ({source:source,target:next[source]})),updated_at:SERVER_DATE()}});
+      return ok({updated:1});
+    });
+  }
+  const result = assetTracking.read(events, links, action, payload, Date.now());
+  if (action === 'getAssetHistory') {
+    result.merged_sources = Object.keys(links).filter(key => assetTracking.resolve(key, links) === result.key).map(key => ({key:key,target:links[key],symbol:assetTracking.parse(key).symbol}));
+  }
+  return ok(result);
+}
+
 exports.main = async event => {
   const context = cloud.getWXContext();
   const openid = context.OPENID;
@@ -976,6 +1028,7 @@ exports.main = async event => {
   const action = event && event.action;
   const payload = event && event.payload ? event.payload : {};
   try {
+    if (['listAssetSummaries', 'getAssetHistory', 'getAssetContext', 'mergeAsset', 'undoAssetMerge'].indexOf(action) >= 0) return await assetRequest(openid, action, payload);
     if (action === 'ensureUserConfig') return ok(await ensureUserConfig(openid));
     if (action === 'createTradeEvent') return await createTradeEvent(openid, payload);
     if (action === 'markExecution') return await markExecution(openid, payload);

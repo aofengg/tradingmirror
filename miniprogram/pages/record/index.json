@@ -1,8 +1,9 @@
 {
   "navigationBarTitleText": "记下操作",
-  "disableScroll": true,
+  "disableScroll": false,
   "usingComponents": {
     "optional-supplement": "/components/optional-supplement/index",
-    "related-history": "/components/related-history/index"
+    "related-history": "/components/related-history/index",
+    "asset-context": "/components/asset-context/index"
   }
 }

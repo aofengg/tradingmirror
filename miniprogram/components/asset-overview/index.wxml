@@ -1,0 +1,28 @@
+<view class="overview">
+  <view class="overview__head" bindtap="toggle" role="button" hover-class="control-pressed"><text class="overview__title">操作与回看概览</text><view class="overview__toggle" role="button" aria-label="{{collapsed ? '展开操作与回看概览' : '收起操作与回看概览'}}" hover-class="control-pressed" hover-stay-time="80">{{collapsed ? '展开 ﹀' : '收起 ⌃'}}</view></view>
+  <text wx:if="{{!collapsed}}" class="overview__hint">全部记录 · 最近在上 · 点击节点查看详情</text>
+  <block wx:if="{{!collapsed}}">
+    <view wx:if="{{loading}}" class="overview__state">正在连接操作与回看…</view>
+    <view wx:elif="{{failed}}" class="overview__state overview__retry" bindtap="refresh" role="button" hover-class="control-pressed" hover-stay-time="80">暂时没能打开，点此重试</view>
+    <block wx:elif="{{rows.length}}">
+      <view class="overview__columns"><text class="overview__column-label">当时的操作</text><text class="overview__column-label">后来的感受</text></view>
+      <view class="overview__chart" style="height:{{height}}rpx;">
+        <view class="overview__guide overview__guide--left"></view><view class="overview__guide overview__guide--right"></view>
+        <image wx:for="{{links}}" wx:key="id" class="overview__curve {{item.reverse ? 'overview__curve--reverse' : ''}}" src="/assets/icons/history-curve.svg" mode="scaleToFill" style="top:{{item.top}}rpx;height:{{item.height}}rpx;" aria-hidden="true" />
+        <view wx:for="{{rows}}" wx:key="id" class="overview__row" style="height:{{item.height}}rpx;">
+          <view class="overview__node overview__node--{{item.kind}} {{item.dateDetail ? 'overview__node--with-detail' : ''}}" data-id="{{item.eventId}}" bindtap="open" hover-class="overview__node--pressed" role="button" aria-label="{{item.date + ' ' + item.label + '，查看原记录'}}">
+            <view class="overview__date"><text>{{item.shortDate}}</text><text wx:if="{{item.dateDetail}}" class="overview__date-detail">{{item.dateDetail}}</text></view>
+            <view class="overview__dot overview__dot--{{item.kind === 'feeling' ? item.feeling : item.status}}"><view></view></view>
+            <view class="overview__badge"><text wx:if="{{item.kind === 'operation'}}" class="overview__action overview__action--{{item.action}}">{{item.label}}</text><text wx:else class="feeling-badge feeling-badge--{{item.feeling}}">{{item.label}}</text></view>
+            <text class="overview__note" style="top:{{item.kind === 'feeling' ? item.captionTop : 61}}rpx;">{{item.kind === 'feeling' ? item.caption : item.note}}</text>
+            <text wx:if="{{item.kind === 'operation' && item.status !== 'executed'}}" class="overview__status">{{item.statusLabel}}</text>
+            <text wx:elif="{{item.kind === 'operation' && item.reviewStatus !== 'reviewed'}}" class="overview__status overview__status--{{item.reviewStatus}}">{{item.reviewLabel}}</text>
+          </view>
+        </view>
+      </view>
+      <view wx:if="{{hasMore}}" class="overview__more" bindtap="more" role="button" hover-class="control-pressed" hover-stay-time="80">展开更早足迹 ﹀</view>
+      <view class="overview__legend"><view><view class="overview__legend-dot overview__legend-dot--satisfied"></view><text>满意</text></view><view><view class="overview__legend-dot overview__legend-dot--acceptable"></view><text>可以接受</text></view><view><view class="overview__legend-dot overview__legend-dot--regret"></view><text>懊悔</text></view></view>
+    </block>
+    <view wx:else class="overview__state">留下操作后，这里会连接每一次回看。</view>
+  </block>
+</view>

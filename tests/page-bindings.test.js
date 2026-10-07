@@ -8,11 +8,11 @@ var pageDirs = appConfig.pages.map(function (pagePath) {
   return path.dirname(path.join(root, pagePath + '.wxml'));
 });
 
-pageDirs.concat([path.join(root, 'custom-tab-bar')]).forEach(function (directory) {
+pageDirs.concat(fs.readdirSync(path.join(root,'components')).map(function(name){return path.join(root,'components',name);}),[path.join(root, 'custom-tab-bar')]).forEach(function (directory) {
   var wxml = fs.readFileSync(path.join(directory, 'index.wxml'), 'utf8');
   var js = fs.readFileSync(path.join(directory, 'index.js'), 'utf8');
   var bindings = [];
-  var matcher = /(?:bindtap|catchtap|bindinput)="([A-Za-z0-9_]+)"/g;
+  var matcher = /(?:bind|catch)(?::[a-zA-Z0-9]+|tap|input|confirm|scrolltolower|touchstart|touchmove|touchend|touchcancel)="([A-Za-z0-9_]+)"/g;
   var match;
   while ((match = matcher.exec(wxml))) bindings.push(match[1]);
   bindings.forEach(function (name) {
@@ -21,4 +21,4 @@ pageDirs.concat([path.join(root, 'custom-tab-bar')]).forEach(function (directory
   });
 });
 
-console.log('page binding tests passed');
+console.log('page and component binding tests passed');

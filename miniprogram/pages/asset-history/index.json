@@ -1,0 +1,1 @@
+{"navigationBarTitleText": "个股历史", "enablePullDownRefresh": true, "usingComponents": {"state-view": "/components/state-view/index", "asset-overview": "/components/asset-overview/index"}}
