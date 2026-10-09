@@ -6,11 +6,19 @@ var requestId = require('../../utils/request-id');
 var userService = require('../../services/user-service');
 var share = require('../../utils/share');
 
+function reflectionPresentation(item) {
+  var keys = { satisfied: true, acceptable: true, regret: true };
+  var legacy = { '满意': 'satisfied', '可接受': 'acceptable', '可以接受': 'acceptable', '懊悔': 'regret' };
+  var key = keys[item.feeling] === true ? item.feeling : legacy[item.feeling_label];
+  return Object.assign({}, item, { feeling_key: keys[key] === true ? key : 'unknown' });
+}
+
 Page({
   data: {
     id: '',
     loading: true,
     event: null,
+    canReview: false,
     reflections: [],
     feelings: tradeOptions.FEELINGS,
     regretReasons: tradeOptions.REGRET_REASONS,
@@ -54,9 +62,14 @@ Page({
       self.setData({
         loading: false,
         event: results[0].data,
-        reflections: results[1].data,
+        canReview: tradeOptions.canReview(results[0].data.execution_status),
+        mode: tradeOptions.canReview(results[0].data.execution_status) ? self.data.mode : 'detail',
+        feelings: tradeOptions.getFeelings(results[0].data.execution_status),
+        regretReasons: tradeOptions.getRegretReasons(results[0].data.execution_status),
+        reflections: results[1].data.map(reflectionPresentation),
         showReflectionGuide: results[2].success && userService.hasGuideStep('welcome', results[2].data) && !userService.hasGuideStep('reflection_context', results[2].data)
       });
+      self._setTitle();
       self._loadedRevision=revision;
     }).catch(function () {
       if(!self._alive||version!==self._version)return;
@@ -68,10 +81,10 @@ Page({
   onShow: function () { if(this.data.event && this._loadedRevision!==getApp().getPageRevision('records') && !this.data.completed)this._loadEvent(); },
   onUnload: function () { this._alive=false;this._version++; },
   retry: function () { this._loadEvent(); },
-  _setTitle: function () { wx.setNavigationBarTitle({title:this.data.mode==='review'?'回看这次操作':'记录详情'}); },
+  _setTitle: function () { wx.setNavigationBarTitle({title:this.data.mode==='review' ? (this.data.event && this.data.event.execution_status==='cancelled' ? '回看这次决定' : '回看这次操作') : '记录详情'}); },
   startReview: function () {
-    if(this.data.saving||!this.data.event||this.data.event.execution_status!=='executed')return;
-    this.setData({mode:'review',feeling:'',historyExpanded:false,eventSupplementExpanded:false,contextExpanded:false,reviewFromDetail:true});this._setTitle();wx.pageScrollTo({scrollTop:0,duration:0});
+    if(this.data.saving||!this.data.event||!tradeOptions.canReview(this.data.event.execution_status))return;
+    this.setData({mode:'review',canReview:true,feelings:tradeOptions.getFeelings(this.data.event.execution_status),regretReasons:tradeOptions.getRegretReasons(this.data.event.execution_status),feeling:'',historyExpanded:false,eventSupplementExpanded:false,contextExpanded:false,reviewFromDetail:true});this._setTitle();wx.pageScrollTo({scrollTop:0,duration:0});
   },
   leaveReview: function () { if(this.data.saving)return;this.setData({mode:'detail',feeling:'',historyExpanded:true,eventSupplementExpanded:true});this._setTitle();wx.pageScrollTo({scrollTop:0,duration:0}); },
   toggleHistory: function () { this.setData({historyExpanded:!this.data.historyExpanded}); },
@@ -104,13 +117,13 @@ Page({
   },
 
   _save: function (feeling, regretReason) {
-    if (this.data.mode!=='review'||this.data.saving || !this.data.event || this.data.event.execution_status !== 'executed') return;
+    if (this.data.mode!=='review'||this.data.saving || !this.data.event || !tradeOptions.canReview(this.data.event.execution_status)) return;
     var self = this;
     if (!self._submissionRequestId) self._submissionRequestId = requestId.create('reflection');
     self.setData({ saving: true });
     tradeService.addReflection(self.data.id, feeling, regretReason, self._submissionRequestId).then(function (res) {
       if (!res.success) throw new Error(res.error || 'SAVE_FAILED');
-      var snapshot = Object.assign({}, res.data, { relative_label: '刚刚' });
+      var snapshot = reflectionPresentation(Object.assign({}, res.data, { feeling: res.data.feeling || feeling, relative_label: '刚刚' }));
       self.setData({
         saving: false,
         completed: true,

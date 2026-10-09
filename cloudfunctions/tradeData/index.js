@@ -25,7 +25,8 @@ const FOCUSES = {
   panic_sell: '恐慌卖出',
   chase_high: '冲动追高',
   frequent_adjustment: '频繁调仓',
-  follow_plan: '临时改变计划'
+  follow_plan: '临时改变计划',
+  delayed_reduce: '拖延减仓'
 };
 const ONBOARDING_STEPS = ['welcome', 'record_context', 'record_complete', 'reflection_context', 'trend_generated'];
 
@@ -696,7 +697,7 @@ function buildPeriodSummary(events, reflections, periodType) {
   if (topReason === 'fear_missing' || topRegret === 'chased_high') focuses.push('chase_high');
   if (topReason === 'switch_symbol') focuses.push('frequent_adjustment');
   if (topRegret === 'broke_plan') focuses.push('follow_plan');
-  ['panic_sell', 'chase_high', 'frequent_adjustment'].forEach(key => {
+  ['panic_sell', 'chase_high', 'frequent_adjustment', 'delayed_reduce'].forEach(key => {
     if (focuses.indexOf(key) === -1) focuses.push(key);
   });
   const periodName = periodType === 'month' ? '本月' : '本周';
@@ -721,8 +722,8 @@ function buildPeriodSummary(events, reflections, periodType) {
           ? periodName + '没有临时决定，但有 ' + uncertain.length + ' 次操作归类为「不确定」。'
           : periodName + '的操作都按原计划完成。')
         : ''),
-    focusKeys: focuses.slice(0, 3),
-    focuses: focuses.slice(0, 3).map(key => ({ key: key, label: FOCUSES[key] }))
+    focusKeys: focuses,
+    focuses: focuses.map(key => ({ key: key, label: FOCUSES[key] }))
   };
 }
 

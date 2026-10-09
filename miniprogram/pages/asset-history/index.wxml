@@ -16,7 +16,7 @@
         <view class="timeline__item">
           <view class="timeline__rail"><view class="timeline__dot"></view></view>
           <view class="card record-card asset-event" data-id="{{item._id}}" bindtap="openRecord" hover-class="button-pressed">
-            <view class="asset-event__head"><text class="action-tag action-tag--{{item.action}}">{{item.action_label}}</text><view class="asset-event__statuses"><text wx:if="{{item.execution_status !== 'executed'}}" class="record-card__execution record-card__execution--{{item.execution_status}}">{{item.execution_label}}</text><text wx:if="{{item.review_status}}" class="review-state review-state--{{item.review_status}}">{{item.review_label}}</text></view></view>
+            <view class="asset-event__head"><text class="action-tag action-tag--{{item.action}} {{item.execution_status === 'cancelled' ? 'action-tag--cancelled' : ''}}">{{item.action_label}}</text><view class="asset-event__statuses"><text wx:if="{{item.execution_status !== 'executed'}}" class="record-card__execution record-card__execution--{{item.execution_status}}">{{item.execution_label}}</text><text wx:if="{{item.review_status}}" class="review-state review-state--{{item.review_status}}">{{item.review_label}}</text></view></view>
             <text class="record-card__caption">记录于 {{item.history_date}}</text>
             <text class="record-card__reason">“{{item.reason_label}}”</text>
             <text wx:if="{{item.history_note}}" class="asset-event__note">{{item.history_note}}</text>

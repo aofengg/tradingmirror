@@ -30,7 +30,7 @@ function decorate(item) {
   event.history_note=item.optional_note||'';
   var reviewed=Number(item.reflection_count || 0) > 0;
   var dueAt=item.review_due_at ? new Date(item.review_due_at).getTime() : 0;
-  event.review_status=event.execution_status !== 'executed' ? '' : reviewed ? 'reviewed' : dueAt > 0 && dueAt <= Date.now() ? 'due' : 'waiting';
+  event.review_status=event.execution_status === 'pending' ? '' : reviewed ? 'reviewed' : event.execution_status === 'cancelled' ? '' : dueAt > 0 && dueAt <= Date.now() ? 'due' : 'waiting';
   event.review_label={reviewed:'已回看',due:'待回看',waiting:'尚未回看'}[event.review_status] || '';
   var feelingLabels={satisfied:'满意',acceptable:'可以接受',regret:'懊悔'};
   var legacyFeelings={'满意':'satisfied','可接受':'acceptable','可以接受':'acceptable','懊悔':'regret'};

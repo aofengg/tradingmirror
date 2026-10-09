@@ -16,7 +16,8 @@ var FOCUS_LABELS = {
   panic_sell: '恐慌卖出',
   chase_high: '冲动追高',
   frequent_adjustment: '频繁调仓',
-  follow_plan: '临时改变计划'
+  follow_plan: '临时改变计划',
+  delayed_reduce: '拖延减仓'
 };
 
 function buildReasonLabels() {
@@ -89,7 +90,7 @@ function updatePlanStatus(id, status) {
 function addReflection(tradeEventId, feeling, regretReason, clientRequestId) {
   if (!FEELING_LABELS[feeling]) return Promise.resolve({ success: false, data: null, error: 'VALIDATION_ERROR' });
   var regret = feeling === 'regret'
-    ? tradeOptions.findOption(tradeOptions.REGRET_REASONS, regretReason)
+    ? tradeOptions.findOption(tradeOptions.REGRET_REASONS.concat(tradeOptions.CANCELLED_REGRET_REASONS), regretReason)
     : null;
   if (feeling === 'regret' && !regret) return Promise.resolve({ success: false, data: null, error: 'VALIDATION_ERROR' });
   var snapshot = {
@@ -267,7 +268,7 @@ function getPeriodDetail(periodType, periodId, metric, reasonKey) {
 function saveWeeklyFocus(key) {
   var label = FOCUS_LABELS[key];
   if (!label) return Promise.resolve({ success: false, data: null, error: 'VALIDATION_ERROR' });
-  return cloudApi.call('saveWeeklyFocus', { key: key });
+  return userService.setCurrentFocus(key, label);
 }
 
 function deleteTradeEvent(id) {

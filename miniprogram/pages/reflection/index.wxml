@@ -16,10 +16,10 @@
     <view class="reflection-head">
       <view class="reflection-mode"><text class="eyebrow">{{mode === 'review' ? '留下此刻的感受' : '当时的决定'}} · {{event.relative_label}}</text><view wx:if="{{mode === 'review'}}" class="reflection-leave-review" bindtap="leaveReview" hover-class="control-pressed" hover-stay-time="80">先看记录</view></view>
       <text wx:if="{{mode === 'review' || event.execution_status === 'pending'}}" class="reflection-title">{{mode === 'review' ? '现在是什么感受？' : event.execution_status === 'pending' ? '这次想法，后来执行了吗？' : event.symbol + ' · ' + event.action_label}}</text>
-      <text wx:if="{{mode === 'review' || event.execution_status !== 'executed'}}" class="reflection-subtitle">{{mode === 'review' ? '只记录感受，不用证明当时对错。' : event.execution_status === 'cancelled' ? '未执行，保留当时的想法。' : '保留当时的理由与后来的选择。'}}</text>
+      <text wx:if="{{mode === 'review' || event.execution_status !== 'executed'}}" class="reflection-subtitle">{{mode === 'review' ? '只记录感受，不用证明当时对错。' : event.execution_status === 'cancelled' ? '保留当时的想法，也可以留下现在的感受。' : '保留当时的理由与后来的选择。'}}</text>
     </view>
     <view class="event-card">
-      <view class="event-card__identity"><text class="event-card__symbol">{{event.symbol}}</text><text class="action-tag action-tag--{{event.action}}">{{event.action_label}}</text></view>
+      <view class="event-card__identity"><text class="event-card__symbol">{{event.symbol}}</text><text class="action-tag action-tag--{{event.action}} {{event.execution_status === 'cancelled' ? 'action-tag--cancelled' : ''}}">{{event.action_label}}</text><text wx:if="{{event.execution_status === 'cancelled'}}" class="event-card__execution">未执行</text></view>
       <text class="event-card__caption">当时最主要的原因</text>
       <text class="event-card__reason">“{{event.reason_label}}”</text>
       <view wx:if="{{!event.optional_note && !event.attachments.length}}" class="event-card__footer event-card__footer--action" hover-class="event-card__footer--pressed" hover-stay-time="80" role="button" aria-label="补充这次操作" bindtap="openEventSupplementEditor">
@@ -43,7 +43,7 @@
         </view>
       </view>
     </view>
-    <view wx:if="{{mode === 'review' && event.execution_status === 'executed' && feeling !== 'regret'}}" class="feeling-section">
+    <view wx:if="{{mode === 'review' && canReview && feeling !== 'regret'}}" class="feeling-section">
       <text class="feeling-section__label">点选即保存；懊悔会再问一个原因</text>
       <view class="feeling-list">
         <view wx:for="{{feelings}}" wx:key="key" class="feeling-card feeling-card--{{item.key}}" data-feeling="{{item.key}}" hover-class="feeling-card--pressed" bindtap="chooseFeeling">
@@ -54,26 +54,26 @@
       </view>
     </view>
 
-    <view wx:elif="{{mode === 'review' && event.execution_status === 'executed' && feeling === 'regret'}}" class="regret-panel">
+    <view wx:elif="{{mode === 'review' && canReview && feeling === 'regret'}}" class="regret-panel">
       <view class="regret-panel__head"><view><text class="section-kicker">再问一步</text><text class="regret-panel__title">主要因为什么懊悔？</text></view><text class="regret-panel__back" bindtap="cancelRegret">重新选择</text></view>
       <view class="reason-list">
         <view wx:for="{{regretReasons}}" wx:key="key" class="reason-row" data-reason="{{item.key}}" hover-class="reason-row--pressed" bindtap="chooseRegretReason"><view class="reason-row__radio"></view><text>{{item.label}}</text><text class="reason-row__arrow">›</text></view>
       </view>
     </view>
 
-    <view wx:if="{{showReflectionGuide && mode === 'review' && event.execution_status === 'executed'}}" class="gentle-note"><view class="gentle-note__mark">i</view><text>感受以后变了也没关系。每次回看都会保留，不会覆盖过去。</text></view>
-    <view wx:if="{{mode === 'detail' && event.execution_status === 'executed'}}" class="primary-button reflection-start" bindtap="startReview" hover-class="control-pressed" hover-stay-time="80">{{reflections.length ? '再记一次感受' : '记录现在的感受'}}</view>
+    <view wx:if="{{showReflectionGuide && mode === 'review' && canReview}}" class="gentle-note"><view class="gentle-note__mark">i</view><text>感受以后变了也没关系。每次回看都会保留，不会覆盖过去。</text></view>
+    <view wx:if="{{mode === 'detail' && canReview}}" class="primary-button reflection-start" bindtap="startReview" hover-class="control-pressed" hover-stay-time="80">{{reflections.length ? '再记一次感受' : '记录现在的感受'}}</view>
     <view wx:if="{{event.execution_status === 'pending'}}" class="reflection-execution-actions"><view class="secondary-button" data-status="cancelled" bindtap="confirmExecution" hover-class="control-pressed" hover-stay-time="80">未执行</view><view class="primary-button" data-status="executed" bindtap="confirmExecution" hover-class="control-pressed" hover-stay-time="80">已执行</view></view>
     <optional-supplement id="eventSupplementEditor" hide-trigger entity-type="trade_event" entity-id="{{event._id}}" note="{{event.optional_note}}" attachments="{{event.attachments}}" trigger-text="补充这次操作" sheet-title="为这次操作多留一点" placeholder="例如当时看到的信息、仓位顾虑……" bind:saved="onEventSupplementSaved" />
 
     <view wx:if="{{reflections.length}}" class="history-card">
       <view class="history-card__head" bindtap="toggleHistory" role="button" hover-class="control-pressed" hover-stay-time="80"><text class="section-kicker">回看记录</text><text>{{reflections.length}} 次 · {{historyExpanded ? '收起 ⌃' : '展开 ⌄'}}</text></view>
-      <text wx:if="{{!historyExpanded}}" class="history-latest">最近：{{reflections[0].feeling_label}}{{reflections[0].regret_reason_label ? ' · ' + reflections[0].regret_reason_label : ''}}</text><view wx:else class="timeline">
+      <view wx:if="{{!historyExpanded}}" class="history-latest"><text>最近</text><text class="feeling-badge feeling-badge--{{reflections[0].feeling_key}}">{{reflections[0].feeling_label}}</text><text wx:if="{{reflections[0].regret_reason_label}}" class="timeline__regret-reason">{{reflections[0].regret_reason_label}}</text></view><view wx:else class="timeline">
         <view wx:for="{{reflections}}" wx:key="_id" class="timeline__item">
-          <view class="timeline__rail"><view class="timeline__dot"></view></view>
+          <view class="timeline__rail"><view class="timeline__dot timeline__dot--{{item.feeling_key}}"></view></view>
           <view class="timeline__content">
             <text class="timeline__time">{{item.horizon_label}} · {{item.relative_label}}</text>
-            <text class="timeline__feeling">{{item.feeling_label}}<text wx:if="{{item.regret_reason_label}}"> · {{item.regret_reason_label}}</text></text>
+            <view class="timeline__feeling"><text class="feeling-badge feeling-badge--{{item.feeling_key}}">{{item.feeling_label}}</text><text wx:if="{{item.regret_reason_label}}" class="timeline__regret-reason">{{item.regret_reason_label}}</text></view>
             <text wx:if="{{item.optional_note}}" class="timeline__note">{{item.optional_note}}</text>
             <view wx:if="{{item.attachments.length}}" class="timeline__images"><image wx:for="{{item.attachments}}" wx:for-item="image" wx:key="file_id" src="{{image.file_id}}" data-src="{{image.file_id}}" data-reflection-id="{{item._id}}" mode="aspectFill" bindtap="previewReflectionAttachment" /></view>
           </view>
@@ -91,9 +91,9 @@
 
     <text class="complete-title">感受已保存</text>
     <text class="complete-sub">每一次回看都会保留。</text>
-    <view class="saved-feeling"><text>现在的感受</text><text>{{reflections[0].feeling_label}}<text wx:if="{{reflections[0].regret_reason_label}}"> · {{reflections[0].regret_reason_label}}</text></text></view>
+    <view class="saved-feeling"><text>现在的感受</text><view class="saved-feeling__value"><text class="feeling-badge feeling-badge--{{reflections[0].feeling_key}}">{{reflections[0].feeling_label}}</text><text wx:if="{{reflections[0].regret_reason_label}}" class="timeline__regret-reason">{{reflections[0].regret_reason_label}}</text></view></view>
     <optional-supplement entity-type="reflection" entity-id="{{reflections[0]._id}}" note="{{reflections[0].optional_note}}" attachments="{{reflections[0].attachments}}" trigger-text="补充这次回看" sheet-title="为这次感受多留一点" placeholder="例如为什么会有这种感受……" bind:saved="onReflectionSupplementSaved" />
-    <view class="primary-button complete-button" hover-class="button-pressed" bindtap="finish">{{reviewFromDetail ? '返回记录详情' : '返回待办'}}</view>
+    <view class="primary-button complete-button" hover-class="button-pressed" bindtap="finish">{{reviewFromDetail ? '返回记录详情' : '返回'}}</view>
   </view>
 
   <view wx:else class="reflection-error"><text>这条记录暂时打不开</text><text>请重新加载，或返回查看其他记录。</text><view class="primary-button reflection-start" bindtap="retry" hover-class="control-pressed" hover-stay-time="80">重新加载</view></view>

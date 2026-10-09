@@ -353,7 +353,8 @@ Page({
       if (Number(data.reflectionCount || 0) === 0) actions.push({ label: '撤销执行', type: 'status', status: 'pending' });
       else actions.push({ label: '为什么不能撤销？', type: 'explain' });
     } else if (data.status === 'cancelled') {
-      actions.push({ label: '恢复待确认', type: 'status', status: 'pending' });
+      if (Number(data.reflectionCount || 0) === 0) actions.push({ label: '恢复待确认', type: 'status', status: 'pending' });
+      else actions.push({ label: '为什么不能恢复？', type: 'explain' });
     }
     actions.push({ label: '删除记录', type: 'delete' });
 
@@ -373,7 +374,7 @@ Page({
   _showRollbackExplanation: function () {
     wx.showModal({
       title: '已有回看记录',
-      content: '这次操作已经留下回看，直接退回会让历史记录相互矛盾。如确实记错，可删除后重新记录。',
+      content: '这次决定已经留下回看，直接退回会让历史记录相互矛盾。如确实记错，可删除后重新记录。',
       showCancel: false,
       confirmText: '知道了'
     });

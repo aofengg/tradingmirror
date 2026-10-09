@@ -42,6 +42,8 @@ Page({
       if (tabBar) tabBar.setData({ selected: 0 });
     }
     var app = getApp();
+    var config = userService.getCachedConfig();
+    if (config) this.setData({ currentFocus: config.current_focus || null });
     var needsRefresh = this._loadedRevision !== app.getPageRevision('today');
     if (this.data.hasLoaded && !needsRefresh && this._lastLoadedAt && Date.now() - this._lastLoadedAt < 30000) return;
     this._loadPage();

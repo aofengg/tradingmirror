@@ -144,6 +144,7 @@ button::after { border: 0; }
 .action-tag--add { color: #416a7a; border-color: rgba(65,106,122,.11); background: #e9f1f4; }
 .action-tag--reduce { color: #866126; border-color: rgba(134,97,38,.11); background: #f6eddb; }
 .action-tag--exit { color: #945551; border-color: rgba(148,85,81,.11); background: #f5e7e4; }
+.action-tag--cancelled { border:2rpx dashed currentColor; background:transparent; }
 
 .loading-state {
   min-height: 380rpx;

@@ -39,6 +39,29 @@ var REGRET_REASONS = [
   { key: 'other', label: '其他' }
 ];
 
+var CANCELLED_REGRET_REASONS = [
+  { key: 'missed_opportunity', label: '错过机会' },
+  { key: 'hesitated', label: '犹豫没行动' },
+  { key: 'missed_risk_control', label: '没及时控制风险' },
+  { key: 'broke_plan', label: '没按计划' },
+  { key: 'other', label: '其他' }
+];
+
+function canReview(status) {
+  return status === 'executed' || status === 'cancelled';
+}
+
+function getRegretReasons(status) {
+  return status === 'cancelled' ? CANCELLED_REGRET_REASONS : REGRET_REASONS;
+}
+
+function getFeelings(status) {
+  return FEELINGS.map(function (item) {
+    return status === 'cancelled' && item.key === 'satisfied'
+      ? Object.assign({}, item, { hint: '认可当时的选择' }) : item;
+  });
+}
+
 function getReasons(action) {
   return action === 'buy' || action === 'add' ? BUY_REASONS : SELL_REASONS;
 }
@@ -54,6 +77,10 @@ module.exports = {
   ACTIONS: ACTIONS,
   FEELINGS: FEELINGS,
   REGRET_REASONS: REGRET_REASONS,
+  CANCELLED_REGRET_REASONS: CANCELLED_REGRET_REASONS,
+  canReview: canReview,
+  getRegretReasons: getRegretReasons,
+  getFeelings: getFeelings,
   getReasons: getReasons,
   findOption: findOption
 };

@@ -25,7 +25,7 @@ function load(key,isCurrent) {
       if(lastId)where._id=db.getCommand().gt(lastId);
       // _id keysets preserve snapshots sharing exactly the same timestamp.
       return reflections.getList({where:where,orderBy:'_id',order:'asc',pageSize:20,
-        fields:{_id:true,trade_event_id:true,feeling:true,feeling_label:true,reviewed_at:true,created_at:true}
+        fields:{_id:true,trade_event_id:true,feeling:true,feeling_label:true,regret_reason_label:true,optional_note:true,reviewed_at:true,created_at:true}
       }).then(function(result){
         if(!active())return null;
         if(!result.success)throw new Error(result.error||'REFLECTION_LOAD_FAILED');

@@ -51,7 +51,7 @@
               <view class="record-card__identity record-card__identity--{{item.symbol_layout}}">
                 <text class="record-card__symbol">{{item.symbol}}</text>
                 <view class="record-card__badges">
-                  <text class="action-tag action-tag--{{item.action}}">{{item.action_label}}</text>
+                  <text class="action-tag action-tag--{{item.action}} {{item.execution_status === 'cancelled' ? 'action-tag--cancelled' : ''}}">{{item.action_label}}</text>
 
                 </view>
               </view>
@@ -66,7 +66,7 @@
               <text class="pill {{item.plan_status === 'impulsive' ? 'pill--warm' : ''}}">{{item.plan_label}}</text>
               <view wx:if="{{item.execution_status === 'pending'}}" class="record-task" data-id="{{item._id}}" catchtap="openConfirmation" hover-class="control-pressed" hover-stay-time="80">确认是否执行 ›</view>
               <view wx:elif="{{item.review_status === 'due'}}" class="record-task" data-id="{{item._id}}" catchtap="startReview" hover-class="control-pressed" hover-stay-time="80">去回看 ›</view>
-              <text wx:elif="{{item.execution_status === 'cancelled'}}" class="record-card__status">未执行</text>
+              <view wx:elif="{{item.execution_status === 'cancelled'}}" class="record-task" data-id="{{item._id}}" catchtap="startReview" hover-class="control-pressed" hover-stay-time="80">未执行 · {{item.reflection_count ? '再回看' : '去回看'}} ›</view>
               <text wx:else class="record-card__status">{{item.latest_feeling_label ? '最近感受：' + item.latest_feeling_label : item.review_label}}</text>
             </view>
           </view>

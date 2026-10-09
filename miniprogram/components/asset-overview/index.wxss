@@ -11,7 +11,7 @@
 .overview__columns text:first-child { left:var(--overview-operation-axis); }
 .overview__columns text:last-child { left:var(--overview-feeling-axis); }
 .overview__chart { position:relative; }
-.overview__guide { position:absolute; top:0; bottom:15rpx; border-left:1rpx dashed #d4d9d2; }
+.overview__guide { position:absolute; top:0; bottom:15rpx; border-left:2rpx dashed #829789; transform:translateX(-50%); pointer-events:none; }
 .overview__guide--left { left:var(--overview-operation-axis); }
 .overview__guide--right { left:var(--overview-feeling-axis); }
 .overview__row { position:relative; }
@@ -28,7 +28,9 @@
 .overview__dot--pending { border-color:var(--color-warm); }
 .overview__dot--pending > view { background:transparent; }
 .overview__dot--cancelled,.overview__dot--acceptable,.overview__dot--unknown { border-color:var(--color-text-secondary); }
-.overview__dot--cancelled > view,.overview__dot--acceptable > view,.overview__dot--unknown > view { background:var(--color-text-secondary); }
+.overview__dot--cancelled { border-style:dashed; }
+.overview__dot--cancelled > view { background:transparent; }
+.overview__dot--acceptable > view,.overview__dot--unknown > view { background:var(--color-text-secondary); }
 .overview__dot--regret { border-color:var(--color-danger); }
 .overview__dot--regret > view { background:var(--color-danger); }
 .overview__badge { position:absolute; top:8rpx; }
@@ -39,11 +41,19 @@
 .overview__action--add { color:#386d80; background:#e6f0f4; border-color:#d3e3e9; }
 .overview__action--reduce { color:var(--color-warm-dark); background:#f6edda; border-color:#e9d9b9; }
 .overview__action--exit { color:var(--color-danger); background:var(--color-danger-soft); border-color:#ebd3cc; }
-.overview__note { position:absolute; top:61rpx; font-size:22rpx; color:var(--color-text-secondary); line-height:29rpx; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.overview__action--cancelled { border:2rpx dashed currentColor; background:transparent; }
+.overview__note { position:absolute; top:61rpx; font-size:20rpx; color:#78857e; line-height:28rpx; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .overview__node--operation .overview__note { left:20%; width:37%; }
-.overview__node--feeling .overview__note { left:60.5%; right:0; font-size:19rpx; }
+.overview__details { position:absolute; left:60.5%; right:0; background:var(--color-bg-card); }
+.overview__attribution { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--color-text-placeholder); font-size:18rpx; line-height:25rpx; }
+.overview__memo { position:relative; margin-top:4rpx; }
+.overview__memo-text,.overview__memo-measure { display:block; color:#78857e; font-size:18rpx; font-weight:400; line-height:26rpx; white-space:pre-wrap; overflow-wrap:anywhere; }
+.overview__memo-text--clamped { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+.overview__memo-measure { position:absolute; top:0; left:0; right:0; visibility:hidden; pointer-events:none; }
+.overview__memo-toggle { height:60rpx; display:flex; align-items:center; color:var(--color-text-secondary); font-size:19rpx; line-height:1.5; }
 .overview__status { position:absolute; top:15rpx; left:36%; font-size:18rpx; color:var(--color-text-placeholder); line-height:32rpx; }
 .overview__status--due { color:var(--color-warm-dark); }
+.overview__status--cancelled { color:var(--color-text-secondary); }
 .overview__curve { position:absolute; left:34%; width:24.5%; pointer-events:none; }
 .overview__curve--reverse { transform:scaleY(-1); }
 .overview__more { min-height:76rpx; display:flex; align-items:center; justify-content:center; color:var(--color-primary); font-size:var(--font-size-xs); }
@@ -55,7 +65,7 @@
 .overview__legend-dot--regret { background:var(--color-danger); }
 
 .overview .feeling-badge { padding-left:9rpx; padding-right:9rpx; }
-.overview__node--feeling.overview__node--with-detail .overview__note { top:77rpx; line-height:25rpx; }
+
 
 .overview__node--feeling.overview__node--with-detail .overview__date-detail { line-height:21rpx; }
 

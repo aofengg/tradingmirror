@@ -21,10 +21,15 @@ assert.deepStrictEqual(rows.map(x=>x.id),['reflection:r3','event:pending','refle
 assert.strictEqual(rows[0].feeling,'acceptable');assert(rows[0].note.includes('第2次回看'));
 assert.strictEqual(rows[3].time,stamp(25),'confirmed decisions use actual execution time');
 const limited=chart.layout(rows,3);assert.strictEqual(limited.links.length,0,'never draw links to an off-screen or wrong operation');assert(limited.hasMore);
-const full=chart.layout(rows,10);assert.strictEqual(full.links.length,3);assert(!full.hasMore);
+const full=chart.layout(rows,10);assert.strictEqual(full.links.length,3);assert(!full.hasMore);assert(full.links.every(link=>!link.cancelled),'executed operations keep solid links');
 assert.strictEqual(full.links.find(x=>x.id==='reflection:r3').height,full.rows[3].top-full.rows[0].top);
 assert.strictEqual(full.links.find(x=>x.id==='reflection:r2').height,full.rows[3].top-full.rows[2].top);
 assert.strictEqual(full.links.find(x=>x.id==='reflection:r1').height,full.rows[5].top-full.rows[4].top);
+const cancelled=chart.build(events,[{_id:'c1',trade_event_id:'cancelled',feeling:'regret',reviewed_at:stamp(28)}]);
+assert.strictEqual(cancelled.filter(x=>x.kind==='feeling').length,1);
+const cancelledLayout=chart.layout(cancelled,10);assert.strictEqual(cancelledLayout.links.length,1);assert(cancelledLayout.rows[0].caption.includes('未执行'));assert.strictEqual(cancelledLayout.links[0].cancelled,true,'link appearance follows the original decision status');
+const reverseCancelled=chart.layout(chart.build([{_id:'c',execution_status:'cancelled',created_at:stamp(28)}],[{_id:'r',trade_event_id:'c',feeling:'regret',reviewed_at:stamp(27)}]),10);
+assert(reverseCancelled.links[0].reverse);assert(reverseCancelled.links[0].cancelled,'reverse chronological links preserve the cancelled style');
 const legacy=chart.build([{_id:'x',action:'buy',execution_status:'executed',created_at:stamp(1)}],[{_id:'legacy',trade_event_id:'x',feeling_label:'可接受',created_at:stamp(2)}]);
 assert.strictEqual(legacy[0].feeling,'acceptable');assert.strictEqual(legacy[0].time,stamp(2));
 const tied=chart.build([{_id:'x',created_at:stamp(1)}],[{_id:'b',trade_event_id:'x',created_at:stamp(2)},{_id:'a',trade_event_id:'x',created_at:stamp(2)}]);
@@ -41,7 +46,7 @@ function loadService(deps){const context={module:{exports:{}},require:name=>deps
  '../repository/reflections-repo':{getList:async options=>{calls.push(options);const eligible=snapshots.filter(x=>options.where.trade_event_id.ids.includes(x.trade_event_id)&&(!options.where._id||x._id>options.where._id.after));return {success:true,data:{list:eligible.slice(0,20),hasMore:eligible.length>=20}};}}
  });
  const result=await service.load('key');assert.strictEqual(result.events.length,51);assert.strictEqual(result.reflections.length,45,'multiple snapshot pages with identical timestamps must all survive');
- assert.strictEqual(historyCalls.length,2);assert(calls.every(x=>x.orderBy==='_id'&&x.pageSize===20));assert.strictEqual(calls.length,5);
+ assert.strictEqual(historyCalls.length,2);assert(calls.every(x=>x.orderBy==='_id'&&x.pageSize===20));assert.strictEqual(calls.length,5);assert(calls.every(x=>x.fields.regret_reason_label&&x.fields.optional_note&&!x.fields.attachments),'read review text without image metadata');
  assert.strictEqual(await service.load('key',()=>false),null);
  const fail=loadService({'./asset-service':{history:async()=>({list:[{_id:'e'}],hasMore:false})},'../utils/db':{getCommand:()=>({in:x=>x})},'../repository/reflections-repo':{getList:async()=>({success:false,error:'offline'})}});
  await assert.rejects(fail.load('key'),/offline/,'must not display partial reflections as complete');

@@ -15,5 +15,7 @@ assert.strictEqual(decorate(event({review_due_at:now+3600000})).review_label,'�
 assert.strictEqual(decorate(event({reflection_count:1,latest_feeling_label:'懊悔'})).history_feeling_key,'regret');
 assert.strictEqual(decorate(event({reflection_count:1})).history_feeling,'已回看');
 assert.strictEqual(decorate(event({execution_status:'pending'})).review_label,'');
+assert.strictEqual(decorate(event({execution_status:'cancelled',reflection_count:1,latest_feeling:'regret'})).review_status,'reviewed');
+assert.strictEqual(decorate(event({execution_status:'cancelled'})).review_status,'','unexecuted decisions do not become automatic review tasks');
 assert.strictEqual(base.review_status,undefined,'decorating must not mutate the source record');
 console.log('asset presentation: review/filter parity, future/missing dates, feelings and legacy labels passed');

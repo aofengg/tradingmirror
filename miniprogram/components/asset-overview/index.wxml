@@ -8,14 +8,22 @@
       <view class="overview__columns"><text class="overview__column-label">当时的操作</text><text class="overview__column-label">后来的感受</text></view>
       <view class="overview__chart" style="height:{{height}}rpx;">
         <view class="overview__guide overview__guide--left"></view><view class="overview__guide overview__guide--right"></view>
-        <image wx:for="{{links}}" wx:key="id" class="overview__curve {{item.reverse ? 'overview__curve--reverse' : ''}}" src="/assets/icons/history-curve.svg" mode="scaleToFill" style="top:{{item.top}}rpx;height:{{item.height}}rpx;" aria-hidden="true" />
+        <image wx:for="{{links}}" wx:key="id" class="overview__curve {{item.reverse ? 'overview__curve--reverse' : ''}}" src="/assets/icons/{{item.cancelled ? 'history-curve-cancelled.svg' : 'history-curve.svg'}}" mode="scaleToFill" style="top:{{item.top}}rpx;height:{{item.height}}rpx;" aria-hidden="true" />
         <view wx:for="{{rows}}" wx:key="id" class="overview__row" style="height:{{item.height}}rpx;">
-          <view class="overview__node overview__node--{{item.kind}} {{item.dateDetail ? 'overview__node--with-detail' : ''}}" data-id="{{item.eventId}}" bindtap="open" hover-class="overview__node--pressed" role="button" aria-label="{{item.date + ' ' + item.label + '，查看原记录'}}">
+          <view class="overview__node overview__node--{{item.kind}} {{item.dateDetail ? 'overview__node--with-detail' : ''}}" data-id="{{item.eventId}}" bindtap="open" hover-class="overview__node--pressed" role="button" aria-label="{{item.date + ' ' + item.label + (item.kind === 'operation' && item.statusLabel ? ' · ' + item.statusLabel : '') + '，查看原记录'}}">
             <view class="overview__date"><text>{{item.shortDate}}</text><text wx:if="{{item.dateDetail}}" class="overview__date-detail">{{item.dateDetail}}</text></view>
             <view class="overview__dot overview__dot--{{item.kind === 'feeling' ? item.feeling : item.status}}"><view></view></view>
-            <view class="overview__badge"><text wx:if="{{item.kind === 'operation'}}" class="overview__action overview__action--{{item.action}}">{{item.label}}</text><text wx:else class="feeling-badge feeling-badge--{{item.feeling}}">{{item.label}}</text></view>
-            <text class="overview__note" style="top:{{item.kind === 'feeling' ? item.captionTop : 61}}rpx;">{{item.kind === 'feeling' ? item.caption : item.note}}</text>
-            <text wx:if="{{item.kind === 'operation' && item.status !== 'executed'}}" class="overview__status">{{item.statusLabel}}</text>
+            <view class="overview__badge"><text wx:if="{{item.kind === 'operation'}}" class="overview__action overview__action--{{item.action}} {{item.status === 'cancelled' ? 'overview__action--cancelled' : ''}}">{{item.label}}</text><text wx:else class="feeling-badge feeling-badge--{{item.feeling}}">{{item.label}}</text></view>
+            <text wx:if="{{item.kind === 'operation'}}" class="overview__note">{{item.note}}</text>
+            <view wx:elif="{{item.caption || item.annotation}}" class="overview__details" data-row-id="{{item.id}}" style="top:{{item.captionTop}}rpx;">
+              <text wx:if="{{item.caption}}" class="overview__attribution">{{item.caption}}</text>
+              <view wx:if="{{item.annotation}}" class="overview__memo" data-id="{{item.eventId}}" data-row-id="{{item.id}}" catchtap="toggleMemo" role="button" aria-label="{{item.memoExpandable ? (item.memoExpanded ? '收起完整备注' : '展开完整备注') : '查看原记录'}}" hover-class="control-pressed" hover-stay-time="80">
+                <text class="overview__memo-text {{item.memoExpanded ? '' : 'overview__memo-text--clamped'}}" data-row-id="{{item.id}}">{{item.annotation}}</text>
+                <text class="overview__memo-measure" data-row-id="{{item.id}}" aria-hidden="true">{{item.annotation}}</text>
+                <view wx:if="{{item.memoExpandable}}" class="overview__memo-toggle" data-row-id="{{item.id}}">{{item.memoExpanded ? '收起全文 ⌃' : '展开全文 ⌄'}}</view>
+              </view>
+            </view>
+            <text wx:if="{{item.kind === 'operation' && item.status !== 'executed'}}" class="overview__status overview__status--{{item.status}}">{{item.statusLabel}}</text>
             <text wx:elif="{{item.kind === 'operation' && item.reviewStatus !== 'reviewed'}}" class="overview__status overview__status--{{item.reviewStatus}}">{{item.reviewLabel}}</text>
           </view>
         </view>
