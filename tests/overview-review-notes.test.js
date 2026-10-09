@@ -1,0 +1,30 @@
+const assert=require('assert'),fs=require('fs'),vm=require('vm');
+const chart=require('../miniprogram/utils/asset-overview');
+const events=[{_id:'executed',action:'reduce',action_label:'减仓',execution_status:'executed',created_at:'2026-09-25'},{_id:'cancelled',action:'reduce',execution_status:'cancelled',created_at:'2026-10-06'}];
+const snapshots=[{_id:'long',trade_event_id:'executed',feeling:'regret',regret_reason_label:'恐慌操作',optional_note:'第一行\n一段完整的复盘文字。'.repeat(20),attachments:[{file_id:'private-image'}],created_at:'2026-10-09'},{_id:'short',trade_event_id:'cancelled',feeling:'satisfied',optional_note:'没有执行也可以回看。',created_at:'2026-10-08'}];
+const rows=chart.build(events,snapshots),long='reflection:long';
+assert.equal(rows[0].reason,'恐慌操作');assert.equal(rows[0].memo,snapshots[0].optional_note);assert(!('attachments' in rows[0]),'the overview must not render or retain image metadata');
+const measurements={[long]:{baseHeight:60,fullMemoHeight:272,lineHeight:34,memoExpandable:true}};
+const collapsed=chart.layout(rows,10,{measurements}),expanded=chart.layout(rows,10,{measurements,expanded:{[long]:true}});
+assert.equal(collapsed.rows[0].annotation,'恐慌操作 · '+snapshots[0].optional_note,'reason and note are one text flow');
+const onlyReason=chart.layout([{id:'reason',kind:'feeling',reason:'恐慌操作',memo:'',dateDetail:'',time:0}],1).rows[0];assert.equal(onlyReason.annotation,'恐慌操作');
+const onlyNote=chart.layout([{id:'note',kind:'feeling',reason:'',memo:'真拉回来了',dateDetail:'',time:0}],1).rows[0];assert.equal(onlyNote.annotation,'真拉回来了','no separator when one part is missing');
+assert(collapsed.rows[0].memoExpandable);assert(!collapsed.rows[0].memoExpanded);assert(expanded.rows[0].memoExpanded);assert.equal(expanded.rows[0].height-collapsed.rows[0].height,170);
+for(const result of [collapsed,expanded])for(const link of result.links){const feeling=result.rows.find(x=>x.id===link.id),event=result.rows.find(x=>x.kind==='operation'&&x.eventId===feeling.eventId);assert.equal(link.height,Math.abs(feeling.top-event.top));assert.equal(link.cancelled,event.status==='cancelled');}
+assert.deepStrictEqual(chart.layout(rows,10,{measurements,expanded:{[long]:false}}),collapsed,'collapse returns every node and link to its original position');
+assert.equal(chart.layout(rows,1,{measurements,expanded:{[long]:true}}).links.length,0,'expanding notes cannot create connections to invisible decisions');
+let definition;const queries=[];
+vm.runInNewContext(fs.readFileSync('miniprogram/components/asset-overview/index.js','utf8'),{Component:value=>definition=value,require:name=>name.includes('asset-overview-service')?{}:chart,wx:{getWindowInfo:()=>({windowWidth:375})}});
+const component=Object.assign({_alive:true,_version:1,_measureVersion:0,_limit:10,_rows:rows,_expanded:{},_measurements:{},data:{collapsed:false,rows:[]},setData(patch,callback){Object.assign(this.data,patch);if(callback)callback();},triggerEvent(name,payload){this.opened=payload;},createSelectorQuery(){return {select(){return this;},selectAll(){return this;},fields(){return this;},exec(callback){queries.push(callback);}};}},definition.methods);
+component._render();assert.equal(queries.length,1);
+function measured(button){return [[{dataset:{rowId:long},height:64+(button?30:0)}],[{dataset:{rowId:long},height:51,'line-height':'17px'}],[{dataset:{rowId:long},height:136}],button?[{dataset:{rowId:long},height:30}]:[]];}
+queries[0](measured(false));assert(component.data.rows[0].memoExpandable);assert.equal(queries.length,2,'newly visible expand control triggers one settling measurement');queries[1](measured(true));assert.equal(queries.length,2,'stable geometry must not start a render loop');
+const originalHeight=component.data.height;component.toggleMemo({currentTarget:{dataset:{rowId:long,id:'executed'}}});assert(component.data.rows[0].memoExpanded);assert.equal(component.data.height-originalHeight,170);assert(!component.opened,'expanding text stays on the chart');
+component.toggleMemo({currentTarget:{dataset:{rowId:long,id:'executed'}}});assert.equal(component.data.height,originalHeight);
+component.toggleMemo({currentTarget:{dataset:{rowId:'reflection:short',id:'cancelled'}}});assert.equal(component.opened.id,'cancelled','fully visible short notes preserve the existing detail action');
+const lastQuery=queries[queries.length-1],oldMetrics=component._measurements;component._version++;lastQuery(measured(false));assert.strictEqual(component._measurements,oldMetrics,'old layout queries cannot affect a refreshed chart');
+component._measure();const detachedQuery=queries[queries.length-1];definition.lifetimes.detached.call(component);const oldHeight=component.data.height;detachedQuery(measured(false));assert.equal(component.data.height,oldHeight,'detached components ignore pending measurements');
+component._alive=true;component._measurements={};component._render();
+const coordinateQuery=queries[queries.length-1];coordinateQuery([[{dataset:{rowId:long},top:100,bottom:164}],[{dataset:{rowId:long},top:113,bottom:164,'line-height':'17px'}],[{dataset:{rowId:long},top:113,bottom:249}],[],{left:10,right:18}]);
+assert.equal(component._measurements[long].fullMemoHeight,272,'coordinate-only bounds and rendered rpx marker must be supported');assert(Number.isFinite(component.data.height),'missing size fields must never turn geometry into NaN');
+console.log('overview notes: text-only projection, measured clipping, inline expansion, correct links, settling, stale queries and short-note routing passed');
