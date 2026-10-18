@@ -107,3 +107,4 @@
 .complete-state,.reflection-share-entry { min-height:calc(100vh - env(safe-area-inset-bottom) - 58rpx); }.regret-panel__back { min-height:88rpx; }
 
 .event-supplement__summary { min-height:88rpx;flex:1; }.event-supplement__actions > text { min-width:88rpx;min-height:88rpx;display:flex;align-items:center;justify-content:center; }.reflection-mode > view { min-height:88rpx;display:flex;align-items:center; }.complete-title { margin-top:24rpx; }
+.history-more { display:flex; align-items:center; justify-content:center; min-height:88rpx; color:var(--color-primary); font-size:24rpx; }

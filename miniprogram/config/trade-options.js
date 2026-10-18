@@ -24,8 +24,8 @@ var SELL_REASONS = [
 ];
 
 var FEELINGS = [
-  { key: 'satisfied', label: '满意', hint: '符合当时计划', icon: '/assets/icons/feeling-satisfied.svg' },
-  { key: 'acceptable', label: '可接受', hint: '有遗憾，但能接受', icon: '/assets/icons/feeling-acceptable.svg' },
+  { key: 'satisfied', label: '满意', hint: '现在认可当时的选择', icon: '/assets/icons/feeling-satisfied.svg' },
+  { key: 'acceptable', label: '可接受', hint: '有些遗憾，也能接受', icon: '/assets/icons/feeling-acceptable.svg' },
   { key: 'regret', label: '懊悔', hint: '想弄清楚为什么', icon: '/assets/icons/feeling-regret.svg' }
 ];
 

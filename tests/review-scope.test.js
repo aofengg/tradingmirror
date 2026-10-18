@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+let definition;
+vm.runInNewContext(fs.readFileSync('miniprogram/pages/review/index.js','utf8'),{Page:p=>definition=p,require:n=>n.includes('review-presentation')?require('../miniprogram/utils/review-presentation'):({})});
+const page=Object.assign({},definition,{data:JSON.parse(JSON.stringify(definition.data)),setData(p){Object.assign(this.data,p);}});
+assert.deepEqual(Array.from(page.data.rangeChoices,x=>x.key),['all','week','month']);
+const reasons=Array.from({length:8},(_,i)=>({key:'r'+i,label:'理由'+i,total:8-i,distribution:[{key:'satisfied',count:1},{key:'regret',count:0},{key:'unreviewed',count:2}]}));
+page._applyBehavior({total:30,reasons});assert.equal(page.data.reasonRows.length,4);assert.equal(page.data.reasonCount,8);assert.equal(page.data.reasonRows[0].feelings.length,2);
+page.toggleReasonRows();assert.equal(page.data.reasonRows.length,8,'all reasons remain accessible without a second view');page.toggleReasonRows();assert.equal(page.data.reasonRows.length,4);
+const wxml=fs.readFileSync('miniprogram/pages/review/index.wxml','utf8');
+for(const obsolete of ['trend-chart','review-mode','basis-switch','plan-feelings','reminder-comparison','range-scroll'])assert(!wxml.includes(obsolete),obsolete+' should not return to the simple review');
+assert(wxml.includes('item.optional_note'));assert(wxml.includes('openDetailRecord'));assert(wxml.includes('chooseRelationFeeling'));
+assert(!fs.readFileSync('miniprogram/pages/review/index.json','utf8').includes('trend-chart'),'page does not load an unused chart');
+console.log('Simple review scope: three time ranges, all reasons, nonzero feelings, original evidence and one view passed');

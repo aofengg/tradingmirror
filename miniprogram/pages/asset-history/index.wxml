@@ -20,7 +20,7 @@
             <text class="record-card__caption">记录于 {{item.history_date}}</text>
             <text class="record-card__reason">“{{item.reason_label}}”</text>
             <text wx:if="{{item.history_note}}" class="asset-event__note">{{item.history_note}}</text>
-            <text wx:if="{{item.attachments.length}}" class="asset-event__images">{{item.attachments.length}} 张图 · 点开查看</text>
+            <text wx:if="{{item.attachment_count}}" class="asset-event__images">{{item.attachment_count}} 张图 · 点开查看</text>
             <view class="asset-event__review" wx:if="{{item.review_status === 'reviewed'}}"><view class="review-line"><text>{{item.history_review_time || '后来回看'}}</text><text class="feeling-badge feeling-badge--{{item.history_feeling_key}}">{{item.history_feeling}}</text></view><text class="asset-event__review-count" wx:if="{{item.reflection_count > 1}}">共 {{item.reflection_count}} 次回看</text></view>
             <view class="asset-event__footer"><text class="pill {{item.plan_status === 'impulsive' ? 'pill--warm' : ''}}">{{item.plan_label}}</text><text>查看原记录 ›</text></view>
           </view>

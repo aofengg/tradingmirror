@@ -23,11 +23,11 @@
       <text class="event-card__caption">当时最主要的原因</text>
       <text class="event-card__reason">“{{event.reason_label}}”</text>
       <view wx:if="{{!event.optional_note && !event.attachments.length}}" class="event-card__footer event-card__footer--action" hover-class="event-card__footer--pressed" hover-stay-time="80" role="button" aria-label="补充这次操作" bindtap="openEventSupplementEditor">
-        <text class="pill {{event.plan_status === 'impulsive' ? 'pill--warm' : ''}}">{{event.plan_label}}</text>
+        <text class="pill event-card__plan {{event.plan_status === 'impulsive' ? 'pill--warm' : ''}}" catchtap="correctPlanStatus">{{event.plan_label}}{{mode === 'detail' ? ' ⌄' : ''}}</text>
         <view class="event-card__meta"><text>{{event.created_label}}</text><text class="event-card__supplement-entry">补充 ›</text></view>
       </view>
       <view wx:else class="event-card__footer">
-        <text class="pill {{event.plan_status === 'impulsive' ? 'pill--warm' : ''}}">{{event.plan_label}}</text>
+        <text class="pill event-card__plan {{event.plan_status === 'impulsive' ? 'pill--warm' : ''}}" catchtap="correctPlanStatus">{{event.plan_label}}{{mode === 'detail' ? ' ⌄' : ''}}</text>
         <view class="event-card__meta"><text>{{event.created_label}}</text></view>
       </view>
       <view wx:if="{{event.optional_note || event.attachments.length}}" class="event-supplement">
@@ -67,7 +67,7 @@
     <optional-supplement id="eventSupplementEditor" hide-trigger entity-type="trade_event" entity-id="{{event._id}}" note="{{event.optional_note}}" attachments="{{event.attachments}}" trigger-text="补充这次操作" sheet-title="为这次操作多留一点" placeholder="例如当时看到的信息、仓位顾虑……" bind:saved="onEventSupplementSaved" />
 
     <view wx:if="{{reflections.length}}" class="history-card">
-      <view class="history-card__head" bindtap="toggleHistory" role="button" hover-class="control-pressed" hover-stay-time="80"><text class="section-kicker">回看记录</text><text>{{reflections.length}} 次 · {{historyExpanded ? '收起 ⌃' : '展开 ⌄'}}</text></view>
+      <view class="history-card__head" bindtap="toggleHistory" role="button" hover-class="control-pressed" hover-stay-time="80"><text class="section-kicker">回看记录</text><text>{{reflectionTotal}} 次 · {{historyExpanded ? '收起 ⌃' : '展开 ⌄'}}</text></view>
       <view wx:if="{{!historyExpanded}}" class="history-latest"><text>最近</text><text class="feeling-badge feeling-badge--{{reflections[0].feeling_key}}">{{reflections[0].feeling_label}}</text><text wx:if="{{reflections[0].regret_reason_label}}" class="timeline__regret-reason">{{reflections[0].regret_reason_label}}</text></view><view wx:else class="timeline">
         <view wx:for="{{reflections}}" wx:key="_id" class="timeline__item">
           <view class="timeline__rail"><view class="timeline__dot timeline__dot--{{item.feeling_key}}"></view></view>
@@ -75,9 +75,10 @@
             <text class="timeline__time">{{item.horizon_label}} · {{item.relative_label}}</text>
             <view class="timeline__feeling"><text class="feeling-badge feeling-badge--{{item.feeling_key}}">{{item.feeling_label}}</text><text wx:if="{{item.regret_reason_label}}" class="timeline__regret-reason">{{item.regret_reason_label}}</text></view>
             <text wx:if="{{item.optional_note}}" class="timeline__note">{{item.optional_note}}</text>
-            <view wx:if="{{item.attachments.length}}" class="timeline__images"><image wx:for="{{item.attachments}}" wx:for-item="image" wx:key="file_id" src="{{image.file_id}}" data-src="{{image.file_id}}" data-reflection-id="{{item._id}}" mode="aspectFill" bindtap="previewReflectionAttachment" /></view>
+            <view wx:if="{{item.attachments.length}}" class="timeline__images"><image wx:for="{{item.attachments}}" wx:for-item="image" wx:key="file_id" src="{{image.file_id}}" data-src="{{image.file_id}}" data-reflection-id="{{item._id}}" mode="aspectFill" lazy-load bindtap="previewReflectionAttachment" /></view>
           </view>
         </view>
+        <view wx:if="{{reflectionMore}}" class="history-more" bindtap="loadMoreReflections" role="button" hover-class="control-pressed">{{reflectionLoadingMore ? '正在翻开…' : reflectionMoreError ? '暂时没打开，点此重试' : '更早的回看 ›'}}</view>
       </view>
     </view>
 

@@ -12,7 +12,7 @@
         <view wx:for="{{rows}}" wx:key="id" class="overview__row" style="height:{{item.height}}rpx;">
           <view class="overview__node overview__node--{{item.kind}} {{item.dateDetail ? 'overview__node--with-detail' : ''}}" data-id="{{item.eventId}}" bindtap="open" hover-class="overview__node--pressed" role="button" aria-label="{{item.date + ' ' + item.label + (item.kind === 'operation' && item.statusLabel ? ' · ' + item.statusLabel : '') + '，查看原记录'}}">
             <view class="overview__date"><text>{{item.shortDate}}</text><text wx:if="{{item.dateDetail}}" class="overview__date-detail">{{item.dateDetail}}</text></view>
-            <view class="overview__dot overview__dot--{{item.kind === 'feeling' ? item.feeling : item.status}}"><view></view></view>
+            <view class="overview__dot overview__dot--{{item.kind === 'feeling' ? item.feeling : item.status}}"><view class="overview__dot-core"></view></view>
             <view class="overview__badge"><text wx:if="{{item.kind === 'operation'}}" class="overview__action overview__action--{{item.action}} {{item.status === 'cancelled' ? 'overview__action--cancelled' : ''}}">{{item.label}}</text><text wx:else class="feeling-badge feeling-badge--{{item.feeling}}">{{item.label}}</text></view>
             <text wx:if="{{item.kind === 'operation'}}" class="overview__note">{{item.note}}</text>
             <view wx:elif="{{item.caption || item.annotation}}" class="overview__details" data-row-id="{{item.id}}" style="top:{{item.captionTop}}rpx;">
@@ -29,7 +29,7 @@
         </view>
       </view>
       <view wx:if="{{hasMore}}" class="overview__more" bindtap="more" role="button" hover-class="control-pressed" hover-stay-time="80">展开更早足迹 ﹀</view>
-      <view class="overview__legend"><view><view class="overview__legend-dot overview__legend-dot--satisfied"></view><text>满意</text></view><view><view class="overview__legend-dot overview__legend-dot--acceptable"></view><text>可以接受</text></view><view><view class="overview__legend-dot overview__legend-dot--regret"></view><text>懊悔</text></view></view>
+      <view class="overview__legend"><view class="overview__legend-item"><view class="overview__legend-dot overview__legend-dot--satisfied"></view><text>满意</text></view><view class="overview__legend-item"><view class="overview__legend-dot overview__legend-dot--acceptable"></view><text>可以接受</text></view><view class="overview__legend-item"><view class="overview__legend-dot overview__legend-dot--regret"></view><text>懊悔</text></view></view>
     </block>
     <view wx:else class="overview__state">留下操作后，这里会连接每一次回看。</view>
   </block>

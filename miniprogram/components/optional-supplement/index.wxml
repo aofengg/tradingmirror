@@ -1,27 +1,27 @@
-<view wx:if="{{!hideTrigger}}" class="supplement-trigger" hover-class="supplement-trigger--pressed" bindtap="open">
-  <view class="supplement-trigger__plus">＋</view>
-  <text>{{triggerText || (note || attachments.length ? '查看或修改补充' : '补充备注或截图')}}</text>
-  <text class="supplement-trigger__optional">选填 ›</text>
+<view wx:if="{{!hideTrigger}}" class="portal-box supplement-trigger" hover-class="supplement-trigger--pressed" bindtap="open">
+  <view class="portal-box supplement-trigger__plus">＋</view>
+  <text class="portal-box">{{triggerText || (note || attachments.length ? '查看或修改补充' : '补充备注或截图')}}</text>
+  <text class="portal-box supplement-trigger__optional">选填 ›</text>
 </view>
 
-<root-portal><view wx:if="{{expanded}}" class="supplement-overlay ui-portal" catchtap="close" catchtouchmove="stop">
-  <view class="supplement-sheet" catchtap="stop">
-    <view class="supplement-sheet__handle"></view>
-    <view class="supplement-sheet__head">
-      <view><text class="supplement-sheet__eyebrow">可选补充</text><text class="supplement-sheet__title">{{sheetTitle || '只在你想记时写一点'}}</text></view>
-      <view class="supplement-sheet__close" bindtap="close" hover-class="control-pressed" hover-stay-time="80">×</view>
+<root-portal><view wx:if="{{expanded}}" class="portal-box supplement-overlay ui-portal" catchtap="close" catchtouchmove="stop">
+  <view class="portal-box supplement-sheet" catchtap="stop">
+    <view class="portal-box supplement-sheet__handle"></view>
+    <view class="portal-box supplement-sheet__head">
+      <view class="portal-box"><text class="portal-box supplement-sheet__eyebrow">可选补充</text><text class="portal-box supplement-sheet__title">{{sheetTitle || '只在你想记时写一点'}}</text></view>
+      <view class="portal-box supplement-sheet__close" bindtap="close" hover-class="control-pressed" hover-stay-time="80">×</view>
     </view>
-    <scroll-view class="supplement-sheet__body" scroll-y enhanced show-scrollbar="{{false}}"><textarea class="supplement-note" value="{{draftNote}}" maxlength="300" disabled="{{saving}}" cursor-spacing="24" placeholder="{{placeholder || '例如当时看到的信息、仓位顾虑……'}}" placeholder-class="supplement-note__placeholder" bindinput="onNoteInput" />
-    <view class="supplement-count">{{draftNote.length}} / 300</view>
-    <view class="supplement-images">
-      <view wx:for="{{draftAttachments}}" wx:key="preview_url" class="supplement-image">
-        <image src="{{item.preview_url || item.file_id}}" data-src="{{item.preview_url || item.file_id}}" mode="aspectFill" bindtap="previewDraftImage" />
-        <view class="supplement-image__remove" data-index="{{index}}" catchtap="removeImage" hover-class="control-pressed" hover-stay-time="80">×</view>
+    <scroll-view class="portal-box supplement-sheet__body" scroll-y enhanced show-scrollbar="{{false}}"><textarea class="portal-box supplement-note" value="{{draftNote}}" maxlength="300" disabled="{{saving}}" cursor-spacing="24" placeholder="{{placeholder || '例如当时看到的信息、仓位顾虑……'}}" placeholder-class="supplement-note__placeholder" bindinput="onNoteInput" />
+    <view class="portal-box supplement-count">{{draftNote.length}} / 300</view>
+    <view class="portal-box supplement-images">
+      <view wx:for="{{draftAttachments}}" wx:key="preview_url" class="portal-box supplement-image">
+        <image class="portal-box supplement-image__preview" src="{{item.preview_url || item.file_id}}" data-src="{{item.preview_url || item.file_id}}" mode="aspectFill" bindtap="previewDraftImage" />
+        <view class="portal-box supplement-image__remove" data-index="{{index}}" catchtap="removeImage" hover-class="control-pressed" hover-stay-time="80">×</view>
       </view>
-      <view wx:if="{{draftAttachments.length < maxCount}}" class="supplement-image supplement-image--add" bindtap="chooseImages" hover-class="control-pressed" hover-stay-time="80"><text>＋</text><text>截图</text></view>
+      <view wx:if="{{draftAttachments.length < maxCount}}" class="portal-box supplement-image supplement-image--add" bindtap="chooseImages" hover-class="control-pressed" hover-stay-time="80"><text class="portal-box supplement-image__plus">＋</text><text class="portal-box supplement-image__caption">截图</text></view>
     </view>
-    <text class="supplement-hint">最多3张截图，备注和截图都可留空。</text></scroll-view>
-    <view class="supplement-save {{saving ? 'supplement-save--disabled' : ''}}" bindtap="save" hover-class="control-pressed" hover-stay-time="80">{{saving ? '正在保存…' : '保存补充'}}</view>
+    <text class="portal-box supplement-hint">最多3张截图，备注和截图都可留空。</text></scroll-view>
+    <view class="portal-box supplement-save {{saving ? 'supplement-save--disabled' : ''}}" bindtap="save" hover-class="control-pressed" hover-stay-time="80">{{saving ? '正在保存…' : '保存补充'}}</view>
   </view>
 </view>
 

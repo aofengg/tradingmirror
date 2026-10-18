@@ -8,7 +8,7 @@ function loadPage(deps,globals){let definition;vm.runInNewContext(fs.readFileSyn
   const titles=[],attempts=[];let fail=true,revision=0;
   const original={_id:'cancelled',execution_status:'cancelled',symbol:'RKLB',reflection_count:0,created_at:new Date(Date.now()-86400000)};
   const reviews=[];
-  const trade={getEvent:async()=>({success:true,data:Object.assign({},original,{reflection_count:reviews.length})}),getReflectionsForTrade:async()=>({success:true,data:reviews.slice()}),addReflection:async(id,feeling,reason,requestId)=>{
+  const trade={getEvent:async()=>({success:true,data:Object.assign({},original,{reflection_count:reviews.length})}),getReflectionPage:async()=>({success:true,data:{list:reviews.slice(),hasMore:false,nextCursor:null}}),addReflection:async(id,feeling,reason,requestId)=>{
     attempts.push({id,feeling,reason,requestId});if(fail)return {success:false,error:'offline'};
     const why=options.findOption(options.getRegretReasons('cancelled'),reason);
     const snapshot={_id:'r'+reviews.length,trade_event_id:id,feeling,feeling_label:options.findOption(options.FEELINGS,feeling).label,regret_reason_label:why?why.label:'',reviewed_at:new Date()};reviews.unshift(snapshot);return {success:true,data:snapshot};

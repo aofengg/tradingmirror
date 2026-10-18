@@ -13,7 +13,7 @@ page, .ui-portal {
   --color-bg-soft: #ebece5;
   --color-text-primary: #172621;
   --color-text-secondary: #65736d;
-  --color-text-placeholder: #9aa49f;
+  --color-text-placeholder: #717c75;
   --color-border: #dedfd8;
   --color-border-strong: #c5cbc5;
   --color-warm: #bc7a35;

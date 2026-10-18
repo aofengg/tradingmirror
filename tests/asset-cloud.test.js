@@ -4,9 +4,9 @@ const events=Array.from({length:215},(_,i)=>({_id:'e'+String(i).padStart(3,'0'),
 events.push({_id:'other',_openid:'other',is_deleted:false,symbol:'PRIVATE',created_at:new Date()});
 const configs=[{_id:'config',_openid:'owner',is_deleted:false,asset_links:[]}];
 let reads=0;
-function collection(name){let where={},sort=[],limit=100;let rows=name==='user_config'?configs:events;return {
- where(value){where=value;return this;},orderBy(field,order){sort.push([field,order]);return this;},limit(value){limit=value;return this;},
- get(){reads++;let data=rows.filter(r=>Object.keys(where).every(k=>where[k]&&where[k].gt!==undefined?r[k]>where[k].gt:r[k]===where[k]));for(const [field,order] of sort.reverse())data.sort((a,b)=>(a[field]>b[field]?1:a[field]<b[field]?-1:0)*(order==='desc'?-1:1));return Promise.resolve({data:data.slice(0,limit)});},
+function collection(name){let where={},sort=[],limit=100,fields=null;let rows=name==='user_config'?configs:events;return {
+ field(value){fields=value;return this;},where(value){where=value;return this;},orderBy(field,order){sort.push([field,order]);return this;},limit(value){limit=value;return this;},
+ get(){reads++;let data=rows.filter(r=>Object.keys(where).every(k=>where[k]&&where[k].gt!==undefined?r[k]>where[k].gt:r[k]===where[k]));for(const [field,order] of sort.reverse())data.sort((a,b)=>(a[field]>b[field]?1:a[field]<b[field]?-1:0)*(order==='desc'?-1:1));return Promise.resolve({data:data.slice(0,limit).map(row=>fields?Object.fromEntries(Object.keys(fields).filter(k=>k in row).map(k=>[k,row[k]])):row)});},
  doc(id){return {get:async()=>({data:rows.find(r=>r._id===id)}),update:async({data})=>{Object.assign(rows.find(r=>r._id===id),data);return {};}};
  } }; }
 const db={collection,command:{gt:value=>({gt:value})},serverDate:()=>new Date()};db.runTransaction=fn=>fn(db);
@@ -23,5 +23,9 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../cloudfunctions/tradeD
  response=await sandbox.exports.main({action:'getAssetHistory',payload:{key:source}});assert.strictEqual(response.data.summary.count,216);assert.strictEqual(response.data.key,target);
  response=await sandbox.exports.main({action:'undoAssetMerge',payload:{source,target}});assert(response.success);assert.strictEqual(configs[0].asset_links.length,0);
  assert.strictEqual(JSON.stringify(events.slice(0,-1)),original,'merge never mutates original records');
+ events[214].attachments=[{file_id:'keep-private',large:'x'.repeat(5000)}];
+ response=await sandbox.exports.main({action:'getAssetHistory',payload:{key:target,compact:true}});assert(response.success);
+ const compactEvent=response.data.list.find(e=>e._id===events[214]._id);assert.equal(compactEvent.attachment_count,1);assert(!('attachments' in compactEvent));assert.equal(events[214].attachments[0].file_id,'keep-private','projection never mutates the original document');
+ response=await sandbox.exports.main({action:'listAssetSummaries',payload:{compact:true}});assert(response.success);assert(response.data.list.every(s=>!('last_executed' in s)),'asset list does not transfer a duplicate event snapshot');
  console.log('asset cloud: >200-row keyset scan and authenticated owner isolation passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});

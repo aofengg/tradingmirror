@@ -36,29 +36,29 @@ function decorate(item) {
     history_review_time: hasReflection ? (days ? days + '天后回看' : '当天回看') : ''
   });
 }
-function loadHistory(source, offset) {
+function loadHistory(source, offset, cursor, knownCount) {
   var where;
   try { where = queryFor(source); } catch (e) { return Promise.resolve({ success: false, error: e.message }); }
   return Promise.all([
-    repo.getList({ where: where, orderBy: 'executed_at', order: 'desc', pageSize: 20, offset: offset || 0 }),
-    repo.count({ where: where })
+    repo.getList({ where: where, orderBy: 'executed_at', order: 'desc', pageSize: 20, offset: offset || 0, cursor:cursor || null }),
+    cursor && Number.isFinite(knownCount) ? Promise.resolve({success:true,data:knownCount}) : repo.count({ where: where })
   ]).then(function (results) {
     if (!results[0].success) return results[0];
     if (!results[1].success) return results[1];
     var list = results[0].data.list.map(decorate);
-    return { success: true, data: { items: list, count: results[1].data, hasMore: (offset || 0) + list.length < results[1].data } };
+    return { success: true, data: { items: list, count: results[1].data, nextCursor:results[0].data.nextCursor, hasMore: (offset || 0) + list.length < results[1].data } };
   });
 }
 // Mini program Object properties turn native Date values into {}. Resolve the
 // owned source document by ID when its time cannot cross the view bridge.
-function getHistory(source, offset) {
+function getHistory(source, offset, cursor, knownCount) {
   var anchor = source && (source.occurred_at || source.created_at);
   if (source && source._id && (!anchor || !isFinite(new Date(anchor).getTime()))) {
     return repo.getById(source._id).then(function (res) {
       if (!res.success) return res;
-      return loadHistory(res.data, offset);
+      return loadHistory(res.data, offset, cursor, knownCount);
     });
   }
-  return loadHistory(source, offset);
+  return loadHistory(source, offset, cursor, knownCount);
 }
 module.exports = { getHistory: getHistory, queryFor: queryFor, decorate: decorate };

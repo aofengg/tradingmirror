@@ -1,0 +1,313 @@
+{
+  "trade_events": {
+    "CreateIndexes": [
+      {
+        "IndexName": "perf_owner_created_id",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "created_at",
+              "Direction": "-1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "-1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "perf_owner_plan_created_id",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "plan_status",
+              "Direction": "1"
+            },
+            {
+              "Name": "created_at",
+              "Direction": "-1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "-1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "perf_owner_status_created_id",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "execution_status",
+              "Direction": "1"
+            },
+            {
+              "Name": "created_at",
+              "Direction": "-1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "-1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "perf_owner_due_id",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "execution_status",
+              "Direction": "1"
+            },
+            {
+              "Name": "reflection_count",
+              "Direction": "1"
+            },
+            {
+              "Name": "review_due_at",
+              "Direction": "1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "perf_owner_id",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "perf_owner_reason_id",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "reason_key",
+              "Direction": "1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "perf_related_executed_id",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "action",
+              "Direction": "1"
+            },
+            {
+              "Name": "reason_key",
+              "Direction": "1"
+            },
+            {
+              "Name": "execution_status",
+              "Direction": "1"
+            },
+            {
+              "Name": "executed_at",
+              "Direction": "-1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "-1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "perf_owner_status_created_asc",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "execution_status",
+              "Direction": "1"
+            },
+            {
+              "Name": "created_at",
+              "Direction": "1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      }
+    ]
+  },
+  "reflection_snapshots": {
+    "CreateIndexes": [
+      {
+        "IndexName": "perf_owner_trade_created_id",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "trade_event_id",
+              "Direction": "1"
+            },
+            {
+              "Name": "created_at",
+              "Direction": "-1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "-1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "perf_owner_id",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "perf_owner_trade_id",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "trade_event_id",
+              "Direction": "1"
+            },
+            {
+              "Name": "_id",
+              "Direction": "1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      }
+    ]
+  }
+}

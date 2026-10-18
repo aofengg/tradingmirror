@@ -2,7 +2,6 @@
   "navigationBarTitleText": "复盘",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "state-view": "/components/state-view/index",
-    "trend-chart": "/components/trend-chart/index"
+    "state-view": "/components/state-view/index"
   }
 }

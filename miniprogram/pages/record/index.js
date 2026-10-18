@@ -34,6 +34,7 @@ Page({
   },
 
   onLoad: function (options) {
+    this._destroyed=false;
     share.enable();
     var stage = options.stage === 'before' ? 'before' : 'after';
     this.setData({
@@ -84,6 +85,9 @@ Page({
       return;
     }
     var step = Math.min(3, Math.max(1, Number(draft.step) || 1));
+    this._draftId=draft.draftId || '';
+    this._submissionRequestId=draft.submissionRequestId || '';
+    this._submissionReason=draft.submissionReason || '';
     var action = draft.action || '';
     if (step === 3 && !action) step = 2;
     this.setData({
@@ -100,7 +104,13 @@ Page({
   },
 
   _saveDraft: function () {
+    clearTimeout(this._draftTimer); this._draftTimer=null;
+    if (this.data.completed) return;
+    if(!this._draftId)this._draftId=requestId.create('draft');
     wx.setStorageSync(constants.STORAGE_KEYS.RECORD_DRAFT, {
+      draftId: this._draftId,
+      submissionRequestId: this._submissionRequestId || '',
+      submissionReason: this._submissionReason || '',
       stage: this.data.stage,
       step: this.data.step,
       symbol: this.data.symbol,
@@ -111,7 +121,10 @@ Page({
   },
 
   clearDraft: function () {
+    if(this.data.saving)return;
+    clearTimeout(this._draftTimer); this._draftTimer=null;
     wx.removeStorageSync(constants.STORAGE_KEYS.RECORD_DRAFT);
+    this._draftId='';this._submissionRequestId='';this._submissionReason='';
     this.setData({
       step: 1,
       symbol: '',
@@ -130,6 +143,7 @@ Page({
     getApp().waitForLogin().then(function () {
       return userService.getConfig();
     }).then(function (res) {
+      if(self._destroyed)return;
       if (res.success) self.setData({
         recentSymbols: res.data.recent_symbols || [],
         showRecordGuide: userService.hasGuideStep('welcome', res.data) && !userService.hasGuideStep('record_context', res.data)
@@ -148,9 +162,20 @@ Page({
 
   onSymbolInput: function (event) {
     var value = String(event.detail.value || '').trim().toUpperCase().slice(0, 12);
+    if (value === this.data.symbol) return;
     this.setData({ symbol: value, symbolInput: value,assetKey:'',resolvedAssetKey:'' });
     this._submissionRequestId = '';
-    this._saveDraft();
+    clearTimeout(this._draftTimer);
+    var self=this;
+    this._draftTimer=setTimeout(function(){self._draftTimer=null;self._saveDraft();},180);
+  },
+
+  onHide: function () { this._flushDraft(); },
+  onUnload: function () { this._flushDraft();this._destroyed=true; },
+  _flushDraft: function () {
+    if (!this._draftTimer) return;
+    clearTimeout(this._draftTimer); this._draftTimer=null;
+    if (!this.data.completed) this._saveDraft();
   },
 
   nextFromSymbol: function () {
@@ -181,21 +206,27 @@ Page({
     var reason = tradeOptions.findOption(this.data.reasons, reasonKey);
     if (!reason) return;
     this.setData({ saving: true });
-    if (!this._submissionRequestId) this._submissionRequestId = requestId.create('event');
+    if (!this._submissionRequestId || this._submissionReason!==reasonKey) this._submissionRequestId = requestId.create('event');
+    this._submissionReason=reasonKey;
+    this._saveDraft();
+    var submittedDraftId=this._draftId,submittedRequestId=this._submissionRequestId;
     var self = this;
     var identity = this._parseAssetKey(this.data.resolvedAssetKey || this.data.assetKey);
-    getApp().waitForLogin().then(function () {
-      return tradeService.createTradeEvent({
+    var payload={
         symbol: identity ? identity.symbol : self.data.symbol,
         market: identity ? identity.market : undefined,
         assetType: identity ? identity.asset_type : undefined,
         action: self.data.action,
         reasonKey: reasonKey,
         stage: self.data.stage,
-        clientRequestId: self._submissionRequestId
-      });
-    }).then(function (res) {
+        clientRequestId: submittedRequestId
+    };
+    getApp().waitForLogin().then(function () { return tradeService.createTradeEvent(payload); }).then(function (res) {
       if (!res.success) throw new Error(res.error || 'SAVE_FAILED');
+      var draft=wx.getStorageSync(constants.STORAGE_KEYS.RECORD_DRAFT);
+      if(draft && draft.draftId===submittedDraftId && draft.submissionRequestId===submittedRequestId)wx.removeStorageSync(constants.STORAGE_KEYS.RECORD_DRAFT);
+      getApp().invalidatePages(['today', 'records', 'review']);
+      if(self._destroyed)return;
       self.setData({
         saving: false,
         completed: true,
@@ -204,10 +235,9 @@ Page({
         planLabel: tradeService.labels.plans[res.data.plan_status],
         showCompletionGuide: userService.hasGuideStep('welcome') && !userService.hasGuideStep('record_complete')
       });
-      wx.removeStorageSync(constants.STORAGE_KEYS.RECORD_DRAFT);
       self._submissionRequestId = '';
-      getApp().invalidatePages(['today', 'records', 'review']);
     }).catch(function (error) {
+      if(self._destroyed)return;
       console.error('保存操作失败', error);
       self.setData({ saving: false });
       toast.showError('暂时没记下，请重试');
@@ -250,6 +280,7 @@ Page({
   },
 
   previousStep: function () {
+    if(this.data.saving)return;
     if (this.data.step <= 1) { wx.navigateBack(); return; }
     this.setData({ step: this.data.step - 1 });
     this._saveDraft();

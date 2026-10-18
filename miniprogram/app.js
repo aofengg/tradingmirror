@@ -17,17 +17,25 @@ App({
         showCancel: false
       });
       this._loginPromise = Promise.reject(new Error('CLOUD_UNAVAILABLE'));
+      this._loginPromise.catch(function () {});
       return;
     }
 
     var cloudOptions = { traceUser: true };
     if (constants.CLOUD_ENV) cloudOptions.env = constants.CLOUD_ENV;
     wx.cloud.init(cloudOptions);
-    this._loginPromise = this._login();
+    // Pages share this attempt; a failed connection remains retryable.
+    this.waitForLogin().catch(function () {});
   },
 
   waitForLogin: function () {
-    return this._loginPromise || Promise.resolve();
+    if (this._loginPromise) return this._loginPromise;
+    var self = this;
+    this._loginPromise = this._login().catch(function (error) {
+      self._loginPromise = null;
+      throw error;
+    });
+    return this._loginPromise;
   },
 
   invalidatePages: function (pageNames) {
@@ -63,7 +71,8 @@ App({
     var self = this;
     var userService = require('./services/user-service');
     return userService.getConfig().then(function (res) {
-      if (res.success) self.globalData.userConfig = res.data;
+      if (!res.success) throw new Error(res.error || 'CONFIG_LOAD_FAILED');
+      self.globalData.userConfig = res.data;
       return res;
     });
   }

@@ -34,6 +34,16 @@
 - `_openid` 升序 + `is_deleted` 升序 + `execution_status` 升序 + `review_due_at` 升序 + `created_at` 降序；
 - `_openid` 升序 + `is_deleted` 升序 + `execution_status` 升序 + `executed_at` 升序。
 
+### 稳定分页与分类筛选（2026-10-18）
+
+通用列表现在显式按 `created_at` 与 `_id` 同方向排序，用两者共同作为游标。记录分类在云端增加 `plan_status` 等值条件。数据量较大时，可根据实际查询告警补充非唯一索引：
+
+- 全部记录：`_openid` 升序、`is_deleted` 升序、`created_at` 降序、`_id` 降序；
+- 分类记录：`_openid` 升序、`is_deleted` 升序、`plan_status` 升序、`created_at` 降序、`_id` 降序；
+- 单条回看：`_openid` 升序、`is_deleted` 升序、`trade_event_id` 升序、`created_at` 降序、`_id` 降序。
+
+本轮模拟器已验证记录筛选和跨页查询成功；未创建或删除云端索引。其他排序字段也使用同方向 `_id` 解决相同时间的稳定顺序。
+
 ### 相关历史与首页待回看（2026-09-18）
 
 在 `trade_events` 新建以下两个**非唯一**组合索引，字段顺序不能打乱：
@@ -105,3 +115,11 @@
 4. 部署 `tradeData`，选择“云端安装依赖”；
 5. 上传小程序代码；
 6. 用测试用户完成“新建记录 → 确认执行 → 复盘 → 周报 → 删除”验收。
+
+## 2026-10-18 性能优化后的实配索引
+
+本节替代上文“尚未创建”的历史说明。已在 `cloud1-d0gjfc19ve571942b` 实际补齐 11 个非唯一组合索引，并合并 5 个被完整前缀覆盖的旧索引。精确定义见 `scripts/performance-indexes.json`，被合并索引的可恢复定义见 `scripts/performance-indexes-restore.json`。没有修改集合权限、唯一性或用户业务文档。
+
+复盘与个股查询使用账号/删除状态/ID 游标索引；理由明细使用理由/ID 索引。待确认列表为创建时间和 ID 同方向升序；待回看与待办列表使用到期时间和 ID 升序；相关历史使用执行时间和 ID 降序。回看详情增加每页 20 条的稳定游标读取。不要根据旧日志重新创建被合并的冗余前缀索引。
+
+验证方法与测量边界见 `docs/performance-audit-2026-10-18.md`。

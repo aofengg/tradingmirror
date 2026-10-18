@@ -3,6 +3,7 @@ var cloudApi = require('../utils/cloud-api');
 var assetUtil = require('../utils/asset');
 
 var cachedConfig = null;
+var configRequest = null;
 var GUIDE_STEP_KEYS = ['welcome', 'record_context', 'record_complete', 'reflection_context', 'trend_generated'];
 
 function defaultConfig() {
@@ -40,23 +41,25 @@ function markGuideStep(step) {
 }
 
 function getConfig() {
+  if (configRequest) return configRequest;
   if (cachedConfig) return Promise.resolve({ success: true, data: cachedConfig, error: null });
-  return cloudApi.call('ensureUserConfig').then(function (res) {
+  configRequest = cloudApi.call('ensureUserConfig').then(function (res) {
     if (!res.success) return res;
     cachedConfig = res.data;
     return { success: true, data: cachedConfig, error: null };
   }).then(function (result) {
     if (!result.success || Number(result.data.data_schema_version || 1) >= constants.DATA_SCHEMA_VERSION) return result;
     return cloudApi.call('migrateUserData').then(function (migration) {
-      if (!migration.success) return result;
+      if (!migration.success) { cachedConfig = null; return migration; }
       cachedConfig = null;
       return cloudApi.call('ensureUserConfig').then(function (fresh) {
-        if (!fresh.success) return result;
+        if (!fresh.success) return fresh;
         cachedConfig = fresh.data;
         return { success: true, data: cachedConfig, error: null };
       });
     });
-  });
+  }).then(function (result) { configRequest = null; return result; }, function (error) { cachedConfig = null; configRequest = null; throw error; });
+  return configRequest;
 }
 
 function addRecentSymbol(symbol) {

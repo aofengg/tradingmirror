@@ -20,6 +20,7 @@ function keyFor(item) {
 function labelTime(value) { return value ? date.formatDateTime(value) : '时间未记录'; }
 function decorate(item) {
   var event=trade.decorateEvent(item);
+  event.attachment_count=typeof item.attachment_count==='number'?item.attachment_count:(item.attachments||[]).length;
   event.execution_status=item.execution_status || (item.stage==='before'?'pending':'executed');
   event.execution_label={executed:'已执行',pending:'待确认',cancelled:'未执行'}[event.execution_status];
   var at=item.stage === 'before' ? (item.recorded_at||item.created_at||item.occurred_at) : (item.occurred_at||item.recorded_at||item.created_at);
@@ -39,18 +40,17 @@ function decorate(item) {
   event.history_review_time=item.latest_reflection_at ? date.formatDateTime(item.latest_reflection_at)+'回看' : '';
   return event;
 }
-function summary(item) {
+function summary(item, listOnly) {
   if (!item) return null;
   var out=Object.assign({},item);
   out.market_label={US:'美股',HK:'港股',CN:'A股',OTHER:'其他市场',CUSTOM:'自定义标的'}[item.market]||'自定义标的';
   out.first_label=item.first_at?date.formatDate(item.first_at):'时间未记录';
   out.latest=decorate(item.latest);
-  out.last_executed=item.last_executed?decorate(item.last_executed):null;
-  out.last=out.last_executed||out.latest;
+  if(!listOnly){out.last_executed=item.last_executed?decorate(item.last_executed):null;out.last=out.last_executed||out.latest;}
   return out;
 }
 function read(action,options) {
-  options=Object.assign({},options);
+  options=Object.assign({compact:true},options);
   var force = options.force === true;
   delete options.force;
   if(options.key){try { JSON.parse(options.key); } catch(e) { try { options.key=decodeURIComponent(options.key); } catch(ignored) {} }}
@@ -74,7 +74,7 @@ function read(action,options) {
     var res = clone(result);
     if (!res.success) throw new Error(res.error||'LOAD_FAILED');
     var data=res.data;
-    if(action==='listAssetSummaries') data.list=data.list.map(summary);
+    if(action==='listAssetSummaries') data.list=data.list.map(function(item){return summary(item,true);});
     else {data.summary=summary(data.summary);if(data.list)data.list=data.list.map(decorate);}
     return data;
   });

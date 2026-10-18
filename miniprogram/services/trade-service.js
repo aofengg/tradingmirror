@@ -8,6 +8,9 @@ var constants = require('../config/constants');
 var cloudApi = require('../utils/cloud-api');
 var requestId = require('../utils/request-id');
 var assetUtil = require('../utils/asset');
+var readCache = require('../utils/read-cache');
+var EVENT_LIST_FIELDS = {};
+('_id symbol market market_source asset_type stage execution_status action action_label reason_key reason_label plan_status created_at recorded_at occurred_at executed_at review_due_at reflection_count latest_feeling latest_feeling_label latest_reflection_at optional_note').split(' ').forEach(function (key) { EVENT_LIST_FIELDS[key] = true; });
 
 var ACTION_LABELS = { buy: '买入', add: '加仓', reduce: '减仓', exit: '清仓' };
 var PLAN_LABELS = { planned: '按原计划', impulsive: '临时决定', uncertain: '不确定' };
@@ -108,9 +111,23 @@ function addReflection(tradeEventId, feeling, regretReason, clientRequestId) {
 }
 
 function getReflectionsForTrade(tradeEventId) {
-  return reflectionsRepo.getList({ where: { trade_event_id: tradeEventId }, pageSize: 100 }).then(function (res) {
+  var snapshots = [];
+  function next(cursor) {
+    return reflectionsRepo.getList({ where: { trade_event_id: tradeEventId }, pageSize: 100, cursor: cursor || null }).then(function (res) {
+      if (!res.success) return res;
+      snapshots = snapshots.concat(res.data.list);
+      if (res.data.hasMore && res.data.nextCursor) return next(res.data.nextCursor);
+      return {success:true, data:{list:snapshots}};
+    });
+  }
+  return next(null).then(function (res) {
     if (!res.success) return res;
-    var list = res.data.list.map(function (item) {
+    var list = res.data.list.map(decorateReflection);
+    return { success: true, data: list, error: null };
+  });
+}
+
+function decorateReflection(item) {
       var horizonLabels = { immediate: '当下回看', next_day: '次日回看', one_week: '一周回看', later: '长期回看', legacy: '过往回看' };
       return Object.assign({}, item, {
         schema_version: item.schema_version || 1,
@@ -122,8 +139,14 @@ function getReflectionsForTrade(tradeEventId) {
         created_label: dateUtil.formatDateTime(item.reviewed_at || item.created_at),
         relative_label: dateUtil.relativeTime(item.reviewed_at || item.created_at)
       });
-    });
-    return { success: true, data: list, error: null };
+}
+
+function getReflectionPage(tradeEventId, cursor) {
+  return readCache.read('reflection-page', {id:tradeEventId,cursor:cursor || null}, function () {
+    return reflectionsRepo.getList({where:{trade_event_id:tradeEventId},pageSize:20,cursor:cursor || null});
+  }).then(function (res) {
+    if (!res.success) return res;
+    return {success:true,data:Object.assign({},res.data,{list:res.data.list.map(decorateReflection)})};
   });
 }
 
@@ -151,8 +174,12 @@ function decorateEvent(item) {
   });
 }
 
-function getEventPage(limit, cursor) {
-  return tradeEventsRepo.getList({ pageSize: limit || 20, cursor: cursor || null }).then(function (result) {
+function getEventPage(limit, cursor, planStatus) {
+  var where = {};
+  if (planStatus === 'planned' || planStatus === 'impulsive') where.plan_status = planStatus;
+  return readCache.read('event-page', {limit:limit || 20, cursor:cursor || null, where:where}, function () {
+    return tradeEventsRepo.getList({ pageSize: limit || 20, cursor: cursor || null, where: where, fields:EVENT_LIST_FIELDS });
+  }).then(function (result) {
     if (!result.success) return result;
     var list = result.data.list.map(decorateEvent);
     return { success: true, data: { list: list, hasMore: result.data.hasMore, nextCursor: result.data.nextCursor }, error: null };
@@ -177,7 +204,7 @@ function getPendingReflection() {
   var cmd = db.getCommand();
   return tradeEventsRepo.getList({
     where: { execution_status: 'executed', reflection_count: 0, review_due_at: cmd.lte(new Date()) },
-    pageSize: 1, orderBy: 'review_due_at', order: 'asc'
+    pageSize: 1, orderBy: 'review_due_at', order: 'asc', fields:EVENT_LIST_FIELDS
   }).then(function (result) {
     if (!result.success) return result;
     return { success: true, data: result.data.list.length ? decorateEvent(result.data.list[0]) : null, error: null };
@@ -187,7 +214,7 @@ function getPendingReflection() {
 function getPendingReflectionQueue(offset) {
   var where = { execution_status: 'executed', reflection_count: 0, review_due_at: db.getCommand().lte(new Date()) };
   return Promise.all([
-    tradeEventsRepo.getList({ where: where, pageSize: 20, offset: offset || 0, orderBy: 'review_due_at', order: 'asc' }),
+    tradeEventsRepo.getList({ where: where, pageSize: 20, offset: offset || 0, orderBy: 'review_due_at', order: 'asc', fields:EVENT_LIST_FIELDS }),
     tradeEventsRepo.count({ where: where })
   ]).then(function (results) {
     if (!results[0].success) return results[0];
@@ -197,10 +224,10 @@ function getPendingReflectionQueue(offset) {
   });
 }
 
-function getPendingIntentQueue() {
+function getPendingIntentQueue(cursor) {
   var where = { execution_status: 'pending' };
   return Promise.all([
-    tradeEventsRepo.getList({ where: where, pageSize: 20, order: 'asc' }),
+    tradeEventsRepo.getList({ where: where, pageSize: 20, cursor: cursor || null, order: 'asc', fields:EVENT_LIST_FIELDS }),
     tradeEventsRepo.count({ where: where })
   ]).then(function (results) {
     if (!results[0].success) return results[0];
@@ -208,35 +235,67 @@ function getPendingIntentQueue() {
     var items = results[0].data.list.map(decorateEvent);
     return {
       success: true,
-      data: { items: items, current: items.length ? items[0] : null, count: results[1].data },
+      data: { items: items, current: items.length ? items[0] : null, count: results[1].data, nextCursor: results[0].data.nextCursor },
       error: null
     };
   });
 }
 
+function getTodoCounts() {
+  return readCache.read('todo-counts', {}, function () {
+    return Promise.all([
+      tradeEventsRepo.count({ where: {execution_status:'pending'} }),
+      tradeEventsRepo.count({ where: {execution_status:'executed',reflection_count:0} })
+    ]).then(function (results) {
+      if (!results[0].success) return results[0];
+      if (!results[1].success) return results[1];
+      return {success:true,data:{confirm:results[0].data,review:results[1].data,all:results[0].data+results[1].data}};
+    });
+  });
+}
+
 function getTodoOverview() {
+  return readCache.read('todo-overview', {}, function () {
   var confirmWhere = { execution_status: 'pending' };
   var reviewWhere = { execution_status: 'executed', reflection_count: 0 };
   return Promise.all([
-    tradeEventsRepo.getList({ where: confirmWhere, pageSize: 20, order: 'asc' }),
-    tradeEventsRepo.getList({ where: reviewWhere, pageSize: 20, order: 'asc' }),
-    tradeEventsRepo.count({ where: confirmWhere }),
-    tradeEventsRepo.count({ where: reviewWhere })
+    tradeEventsRepo.getList({ where: confirmWhere, pageSize: 20, order: 'asc', fields:EVENT_LIST_FIELDS }),
+    tradeEventsRepo.getList({ where: reviewWhere, pageSize: 20, orderBy:'review_due_at', order: 'asc', fields:EVENT_LIST_FIELDS }),
+    getTodoCounts()
   ]).then(function (results) {
     for (var i = 0; i < results.length; i++) {
       if (!results[i].success) return results[i];
     }
-    var confirmCount = results[2].data;
-    var reviewCount = results[3].data;
+    var confirmCount = results[2].data.confirm;
+    var reviewCount = results[2].data.review;
     return {
       success: true,
       data: {
         confirmItems: results[0].data.list.map(decorateEvent),
         reviewItems: results[1].data.list.map(decorateEvent),
+        pages: {
+          confirm: { cursor: results[0].data.nextCursor, more: !!results[0].data.nextCursor && results[0].data.hasMore && results[0].data.list.length < confirmCount },
+          review: { cursor: results[1].data.nextCursor, more: !!results[1].data.nextCursor && results[1].data.hasMore && results[1].data.list.length < reviewCount }
+        },
         counts: { all: confirmCount + reviewCount, confirm: confirmCount, review: reviewCount }
       },
       error: null
     };
+  });
+  });
+}
+
+function getTodoPage(kind, cursor) {
+  if (kind !== 'confirm' && kind !== 'review') return Promise.resolve({success:false,error:'VALIDATION_ERROR'});
+  return readCache.read('todo-page', {kind:kind,cursor:cursor || null}, function () {
+    return tradeEventsRepo.getList({
+      where: kind === 'confirm' ? {execution_status:'pending'} : {execution_status:'executed',reflection_count:0},
+      orderBy: kind === 'confirm' ? 'created_at' : 'review_due_at', order:'asc',
+      pageSize:20, cursor:cursor || null, fields:EVENT_LIST_FIELDS
+    });
+  }).then(function (res) {
+    if (!res.success) return res;
+    return {success:true,data:Object.assign({},res.data,{list:res.data.list.map(decorateEvent)})};
   });
 }
 
@@ -245,20 +304,23 @@ function getWeeklyReview() {
 }
 
 function getPeriodReview(periodType) {
-  return cloudApi.call('getPeriodReview', { period_type: periodType === 'month' ? 'month' : 'week' });
+  return cloudApi.call('getPeriodReview', { period_type: periodType === 'all' ? 'all' : periodType === 'month' ? 'month' : 'week' });
 }
 
-function getPeriodDetail(periodType, periodId, metric, reasonKey) {
+function getPeriodDetail(periodType, periodId, metric, reasonKey, cursor) {
   return cloudApi.call('getPeriodDetail', {
-    period_type: periodType === 'month' ? 'month' : 'week',
+    period_type: periodType === 'all' ? 'all' : periodType === 'month' ? 'month' : 'week',
     period_id: periodId,
     metric: metric,
-    reason_key: reasonKey || ''
+    reason_key: reasonKey || '',
+    cursor: cursor || null,
+    paginated: true
   }).then(function (res) {
     if (!res.success) return res;
     var items = (res.data.items || []).map(function (item) {
       return Object.assign({}, item, {
-        created_label: dateUtil.formatDateTime(item.executed_at)
+        created_label: item.created_label || dateUtil.formatDateTime(item.executed_at),
+        plan_label: PLAN_LABELS[item.plan_status] || '不确定'
       });
     });
     return { success: true, data: Object.assign({}, res.data, { items: items }), error: null };
@@ -282,6 +344,7 @@ module.exports = {
   updatePlanStatus: updatePlanStatus,
   addReflection: addReflection,
   getReflectionsForTrade: getReflectionsForTrade,
+  getReflectionPage: getReflectionPage,
   getRecentEvents: getRecentEvents,
   getEventPage: getEventPage,
   getEvent: getEvent,
@@ -289,6 +352,9 @@ module.exports = {
   getPendingReflectionQueue: getPendingReflectionQueue,
   getPendingIntentQueue: getPendingIntentQueue,
   getTodoOverview: getTodoOverview,
+  getTodoPage: getTodoPage,
+  getTodoCounts: getTodoCounts,
+  clearReadCache: readCache.clear,
   getWeeklyReview: getWeeklyReview,
   getPeriodReview: getPeriodReview,
   getPeriodDetail: getPeriodDetail,

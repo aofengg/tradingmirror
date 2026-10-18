@@ -4,16 +4,16 @@ function page(file,deps,extras={}){let definition;vm.runInNewContext(fs.readFile
 (async()=>{
  const nav=[],writes=[];let revision=0;
  const app={globalData:{},getPageRevision:()=>revision,invalidatePages:()=>revision++,waitForLogin:()=>Promise.resolve()};
- const wx={navigateTo:o=>nav.push(o.url),navigateBack:()=>nav.push('back'),setNavigationBarTitle(){},pageScrollTo(){},showToast(){}};
+ const wx={navigateTo:o=>{nav.push(o.url);if(o.complete)o.complete();},navigateBack:()=>nav.push('back'),setNavigationBarTitle(){},pageScrollTo(){},showToast(){}};
  const common=n=>n.includes('constants')?{ROUTES:{REFLECTION:'/pages/reflection/index'}}:n.includes('share')?{enable(){}}:{};
  const records=page('pages/records/index.js',n=>n.includes('trade-service')?{markExecution:(...args)=>writes.push(args)}:common(n),{wx,getApp:()=>app});
  for(const status of ['pending','executed','cancelled'])records.openReflection({currentTarget:{dataset:{id:'a&b',status}}});
  assert.equal(nav.length,3);assert(nav.every(url=>url==='/pages/reflection/index?id=a%26b&mode=detail'));assert.equal(writes.length,0,'browsing any status must never write execution state');
  records.startReview({currentTarget:{dataset:{id:'r'}}});assert(nav.pop().endsWith('&mode=review'));
  let saves=0,resolveSave;
- const trade={addReflection:()=>{saves++;return new Promise(r=>resolveSave=r);},getEvent:()=>Promise.resolve({success:true,data:{_id:'r',symbol:'RKLB',execution_status:'executed'}}),getReflectionsForTrade:()=>Promise.resolve({success:true,data:[]})};
+ const trade={addReflection:()=>{saves++;return new Promise(r=>resolveSave=r);},getEvent:()=>Promise.resolve({success:true,data:{_id:'r',symbol:'RKLB',execution_status:'executed'}}),getReflectionPage:()=>Promise.resolve({success:true,data:{list:[],hasMore:false,nextCursor:null}})};
  const reflection=page('pages/reflection/index.js',n=>n.includes('trade-service')?trade:n.includes('trade-options')?require('../miniprogram/config/trade-options'):n.includes('user-service')?{getConfig:()=>Promise.resolve({success:false}),hasGuideStep:()=>false,markGuideStep(){}}:n.includes('request-id')?{create:()=> 'one'}:common(n),{wx,getApp:()=>app});
- reflection.data.event={_id:'r',execution_status:'executed'};reflection.data.id='r';
+ reflection._alive=true;reflection.data.event={_id:'r',execution_status:'executed'};reflection.data.id='r';
  reflection.chooseFeeling({currentTarget:{dataset:{feeling:'satisfied'}}});assert.equal(saves,0,'viewing details cannot accidentally add a feeling');
  reflection.startReview();assert.equal(reflection.data.mode,'review');assert(reflection.data.reviewFromDetail);
  reflection.chooseFeeling({currentTarget:{dataset:{feeling:'satisfied'}}});reflection.chooseFeeling({currentTarget:{dataset:{feeling:'acceptable'}}});assert.equal(saves,1,'double tapping a feeling is one write');assert.equal(reflection.data.feeling,'satisfied');
@@ -25,7 +25,7 @@ function page(file,deps,extras={}){let definition;vm.runInNewContext(fs.readFile
  reflection._loadEvent();await tick();reflection._loadEvent();await tick();
  requests[1]({success:true,data:{_id:'new',symbol:'NEW',execution_status:'executed'}});await tick();requests[0]({success:true,data:{_id:'old',symbol:'OLD',execution_status:'executed'}});await tick();assert.equal(reflection.data.event.symbol,'NEW','late detail response cannot overwrite a newer load');
  trade.getEvent=()=>Promise.resolve({success:true,data:{_id:'legacy',execution_status:'executed'}});
- trade.getReflectionsForTrade=()=>Promise.resolve({success:true,data:[{feeling_label:'满意'},{feeling_label:'可接受'},{feeling_label:'可以接受'},{feeling:'regret',feeling_label:'懊悔'},{feeling:'unknown_future',feeling_label:'其他感受'}]});
+ trade.getReflectionPage=()=>Promise.resolve({success:true,data:{hasMore:false,nextCursor:null,list:[{feeling_label:'满意'},{feeling_label:'可接受'},{feeling_label:'可以接受'},{feeling:'regret',feeling_label:'懊悔'},{feeling:'unknown_future',feeling_label:'其他感受'}]}});
  reflection._loadEvent();await tick();assert.equal(Array.from(reflection.data.reflections,x=>x.feeling_key).join(','),'satisfied,acceptable,acceptable,regret,unknown','legacy labels and unknown feelings get a stable presentation');
  let overviewDefinition,reads=0;
  vm.runInNewContext(fs.readFileSync('miniprogram/components/asset-overview/index.js','utf8'),{Component:d=>overviewDefinition=d,require:n=>n.includes('service')?{load:()=>{reads++;return Promise.resolve({events:[],reflections:[]});}}:{build:()=>[],layout:()=>({rows:[]})}});

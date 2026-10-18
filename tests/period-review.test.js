@@ -18,24 +18,11 @@ assert.ok(cloud.indexOf('current_focus: command.set(focus)') !== -1, 'weekly foc
 assert.ok(cloud.indexOf("action === 'getPeriodDetail'") !== -1, 'period metrics should expose matching trade details');
 assert.ok(cloud.indexOf('reasonDistributionReady: events.length >= 5') !== -1, 'reason distribution must wait for a useful sample');
 assert.ok(cloud.indexOf('buildChangeClue') !== -1, 'multi-period changes should be phrased as clues');
-assert.ok(page.indexOf("periodType: 'week'") !== -1);
-assert.ok(page.indexOf('switchPeriod') !== -1);
-assert.ok(template.indexOf('周复盘') !== -1);
-assert.ok(template.indexOf('月复盘') !== -1);
-assert.ok(template.indexOf('trend-chart') !== -1);
-assert.ok(template.indexOf('再积累一个有操作的周期') !== -1);
-assert.ok(template.indexOf('trend-card--compact') !== -1);
-assert.ok(page.indexOf('trendReady: activePoints.length >= 2') !== -1);
-assert.ok(page.indexOf('trendPointsJson: JSON.stringify(data.trend || [])') !== -1);
-assert.ok(page.indexOf('toggleTrend') !== -1);
-assert.ok(page.indexOf('selectTrendPeriod') !== -1, 'trend points should open historical periods');
-assert.ok(page.indexOf('openMetricDetail') !== -1, 'summary metrics should drill into matching records');
-assert.ok(chart.indexOf("pointsJson: { type: String") !== -1);
-assert.ok(chart.indexOf("compact: { type: Boolean") !== -1);
-assert.ok(chart.indexOf('handleTap') !== -1);
-assert.ok(chart.indexOf("triggerEvent('select', point)") !== -1);
-assert.ok(chart.indexOf("ctx.strokeStyle = '#2D8065'") !== -1);
-assert.ok(template.indexOf('常见操作原因') !== -1);
-assert.ok(template.indexOf('变化线索') !== -1);
-
-console.log('period review tests passed');
+// Period APIs remain compatible for existing clients; the current UI has one lightweight view.
+assert.ok(page.indexOf("range: 'all'") !== -1);
+assert.ok(page.indexOf('chooseRange') !== -1);
+assert.ok(template.indexOf('reasonRows') !== -1);
+assert.ok(template.indexOf('openRelation') !== -1);
+assert.strictEqual(template.indexOf('trend-chart'), -1);
+assert.strictEqual(template.indexOf('计划执行率'), -1);
+console.log('period review API compatibility and lightweight entry tests passed');

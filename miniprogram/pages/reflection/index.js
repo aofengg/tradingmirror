@@ -20,10 +20,15 @@ Page({
     event: null,
     canReview: false,
     reflections: [],
+    reflectionTotal: 0,
+    reflectionMore: false,
+    reflectionLoadingMore: false,
+    reflectionMoreError: false,
     feelings: tradeOptions.FEELINGS,
     regretReasons: tradeOptions.REGRET_REASONS,
     feeling: '',
     saving: false,
+    planSaving: false,
     completed: false,
     eventSupplementExpanded: false,
     showReflectionGuide: false,
@@ -47,18 +52,30 @@ Page({
   _loadEvent: function () {
     var self = this;
     var version=++this._version;
+    this._historyRefreshing=true;
     var revision=getApp().getPageRevision('records');
-    self.setData({loading:!self.data.event,loadError:false});
+    var restoreCount=Math.max(20,self.data.reflections.length),restored=[];
+    function readHistory(cursor) {
+      return tradeService.getReflectionPage(self.data.id,cursor).then(function(res){
+        if(!res.success)throw new Error('HISTORY_FAILED');
+        if(!self._alive||version!==self._version)return res;
+        restored=restored.concat(res.data.list);
+        if(restored.length<restoreCount&&res.data.hasMore&&res.data.nextCursor)return readHistory(res.data.nextCursor);
+        return {success:true,data:Object.assign({},res.data,{list:restored})};
+      });
+    }
+    self.setData({loading:!self.data.event,loadError:false,reflectionLoadingMore:false});
     getApp().waitForLogin().then(function () {
       return Promise.all([
         tradeService.getEvent(self.data.id),
-        tradeService.getReflectionsForTrade(self.data.id),
+        readHistory(null),
         userService.getConfig()
       ]);
     }).then(function (results) {
       if(!self._alive||version!==self._version)return;
       if (!results[0].success || !results[1].success) throw new Error('LOAD_FAILED');
       if(!results[0].data)throw new Error('NOT_FOUND');
+      self._reflectionCursor=results[1].data.nextCursor;
       self.setData({
         loading: false,
         event: results[0].data,
@@ -66,7 +83,10 @@ Page({
         mode: tradeOptions.canReview(results[0].data.execution_status) ? self.data.mode : 'detail',
         feelings: tradeOptions.getFeelings(results[0].data.execution_status),
         regretReasons: tradeOptions.getRegretReasons(results[0].data.execution_status),
-        reflections: results[1].data.map(reflectionPresentation),
+        reflections: results[1].data.list.map(reflectionPresentation),
+        reflectionTotal:Math.max(Number(results[0].data.reflection_count || 0),results[1].data.list.length),
+        reflectionMore:results[1].data.hasMore,
+        reflectionLoadingMore:false, reflectionMoreError:false,
         showReflectionGuide: results[2].success && userService.hasGuideStep('welcome', results[2].data) && !userService.hasGuideStep('reflection_context', results[2].data)
       });
       self._setTitle();
@@ -75,12 +95,31 @@ Page({
       if(!self._alive||version!==self._version)return;
       self.setData({ loading: false, loadError: true });
       toast.showError('这条记录暂时打不开');
-    });
+    }).then(function(){if(version===self._version)self._historyRefreshing=false;});
   },
 
   onShow: function () { if(this.data.event && this._loadedRevision!==getApp().getPageRevision('records') && !this.data.completed)this._loadEvent(); },
   onUnload: function () { this._alive=false;this._version++; },
   retry: function () { this._loadEvent(); },
+  correctPlanStatus: function () {
+    if (this.data.mode !== 'detail' || this.data.planSaving || !this.data.event) return;
+    var self = this;
+    var statuses = ['planned', 'impulsive', 'uncertain'];
+    var labels = ['按原计划', '临时决定', '不确定'];
+    wx.showActionSheet({itemList:labels, success:function (result) {
+      var status = statuses[result.tapIndex];
+      if (!self._alive || self.data.planSaving || !status || status === self.data.event.plan_status) return;
+      self.setData({planSaving:true});
+      tradeService.updatePlanStatus(self.data.id, status).then(function (res) {
+        if (!res.success) throw new Error('SAVE_FAILED');
+        getApp().invalidatePages(['today','records','review']);
+        if (!self._alive) return;
+        self.setData({planSaving:false, event:Object.assign({}, self.data.event, {plan_status:status, plan_label:labels[result.tapIndex]})});
+      }).catch(function () {
+        if (self._alive) { self.setData({planSaving:false}); toast.showError('更正失败，请重试'); }
+      });
+    }});
+  },
   _setTitle: function () { wx.setNavigationBarTitle({title:this.data.mode==='review' ? (this.data.event && this.data.event.execution_status==='cancelled' ? '回看这次决定' : '回看这次操作') : '记录详情'}); },
   startReview: function () {
     if(this.data.saving||!this.data.event||!tradeOptions.canReview(this.data.event.execution_status))return;
@@ -88,6 +127,20 @@ Page({
   },
   leaveReview: function () { if(this.data.saving)return;this.setData({mode:'detail',feeling:'',historyExpanded:true,eventSupplementExpanded:true});this._setTitle();wx.pageScrollTo({scrollTop:0,duration:0}); },
   toggleHistory: function () { this.setData({historyExpanded:!this.data.historyExpanded}); },
+  loadMoreReflections: function () {
+    if(this._historyRefreshing||!this.data.reflectionMore||this.data.reflectionLoadingMore)return;
+    var self=this,version=this._version;
+    this.setData({reflectionLoadingMore:true,reflectionMoreError:false});
+    tradeService.getReflectionPage(this.data.id,this._reflectionCursor).then(function(res){
+      if(!self._alive||version!==self._version)return;
+      if(!res.success)throw new Error('HISTORY_FAILED');
+      var patch={reflectionLoadingMore:false,reflectionMore:res.data.hasMore};
+      var start=self.data.reflections.length;
+      res.data.list.forEach(function(item,index){patch['reflections['+(start+index)+']']=reflectionPresentation(item);});
+      self._reflectionCursor=res.data.nextCursor;
+      self.setData(patch);
+    }).catch(function(){if(self._alive&&version===self._version)self.setData({reflectionLoadingMore:false,reflectionMoreError:true});});
+  },
   toggleContext: function () { var history=this.selectComponent('#relatedHistory');if(history)history.open(); },
 
   openAsset: function () {
@@ -101,8 +154,10 @@ Page({
     self.setData({saving:true});
       tradeService.markExecution(self.data.id,status).then(function(result){
         if(!result.success)throw new Error(result.error);
-        self.setData({saving:false});getApp().invalidatePages(['today','records','review']);self._loadEvent();
-      }).catch(function(){self.setData({saving:false});toast.showError('暂时没能更新');});
+        getApp().invalidatePages(['today','records','review']);
+        if(!self._alive)return;
+        self.setData({saving:false});self._loadEvent();
+      }).catch(function(){if(self._alive){self.setData({saving:false});toast.showError('暂时没能更新');}});
   },
 
   chooseFeeling: function (event) {
@@ -123,18 +178,21 @@ Page({
     self.setData({ saving: true });
     tradeService.addReflection(self.data.id, feeling, regretReason, self._submissionRequestId).then(function (res) {
       if (!res.success) throw new Error(res.error || 'SAVE_FAILED');
+      getApp().invalidatePages(['today', 'records', 'review']);
+      self._submissionRequestId = '';
+      if(!self._alive)return;
       var snapshot = reflectionPresentation(Object.assign({}, res.data, { feeling: res.data.feeling || feeling, relative_label: '刚刚' }));
       self.setData({
         saving: false,
         completed: true,
         feeling: feeling,
         reflections: [snapshot].concat(self.data.reflections),
+        reflectionTotal:self.data.reflectionTotal+1,
         showReflectionGuide: false
       });
       userService.markGuideStep('reflection_context');
-      getApp().invalidatePages(['today', 'records', 'review']);
-      self._submissionRequestId = '';
     }).catch(function () {
+      if(!self._alive)return;
       self.setData({ saving: false });
       toast.showError('暂时没记下，请重试');
     });

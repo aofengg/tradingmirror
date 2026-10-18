@@ -1,0 +1,139 @@
+{
+  "trade_events": {
+    "CreateIndexes": [
+      {
+        "IndexName": "B",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "execution_status",
+              "Direction": "1"
+            },
+            {
+              "Name": "created_at",
+              "Direction": "1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "owner_deleted_status_created",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "execution_status",
+              "Direction": "1"
+            },
+            {
+              "Name": "created_at",
+              "Direction": "-1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "E",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "action",
+              "Direction": "1"
+            },
+            {
+              "Name": "reason_key",
+              "Direction": "1"
+            },
+            {
+              "Name": "execution_status",
+              "Direction": "1"
+            },
+            {
+              "Name": "executed_at",
+              "Direction": "-1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      },
+      {
+        "IndexName": "owner_deleted_created",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "created_at",
+              "Direction": "-1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      }
+    ]
+  },
+  "reflection_snapshots": {
+    "CreateIndexes": [
+      {
+        "IndexName": "owner_deleted_trade_created",
+        "MgoKeySchema": {
+          "MgoIndexKeys": [
+            {
+              "Name": "_openid",
+              "Direction": "1"
+            },
+            {
+              "Name": "is_deleted",
+              "Direction": "1"
+            },
+            {
+              "Name": "trade_event_id",
+              "Direction": "1"
+            },
+            {
+              "Name": "created_at",
+              "Direction": "-1"
+            }
+          ],
+          "MgoIsUnique": false,
+          "MgoIsSparse": false
+        }
+      }
+    ]
+  }
+}

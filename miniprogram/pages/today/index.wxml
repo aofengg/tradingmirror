@@ -35,7 +35,7 @@
         <view wx:else class="card calm-card"><state-view type="empty" title="{{todoTab === 'confirm' ? '没有待确认的想法' : '没有待回看的操作'}}" compact /></view>
       </view>
       <view wx:else class="card calm-card"><text class="calm-card__title">今天没有待办</text><text class="calm-card__sub">没有交易，也是一种纪律。</text><view wx:if="{{recentCount}}" class="todo-all" bindtap="openRecords" hover-class="control-pressed" hover-stay-time="80">查看最近记录 ›</view></view>
-      <view class="focus-card" bindtap="openFocus" role="button" hover-class="control-pressed" hover-stay-time="80"><view><text class="section-kicker">本周提醒</text><text class="focus-card__content">{{currentFocus && currentFocus.label ? '少一次“' + currentFocus.label + '”。' : '去复盘，留下一条行为提醒'}}</text></view><text class="focus-card__link">调整 ›</text></view>
+      <view wx:if="{{currentFocus && currentFocus.label}}" class="focus-card" bindtap="openFocus" role="button" hover-class="control-pressed" hover-stay-time="80"><view><text class="section-kicker">本周提醒</text><text class="focus-card__content">少一次“{{currentFocus.label}}”。</text></view><text class="focus-card__link">调整 ›</text></view>
     </block>
     <view wx:else class="card status-shell"><state-view type="error" title="待办暂时没打开" action-text="重新加载" bind:action="retry" compact /></view>
   </view>

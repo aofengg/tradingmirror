@@ -633,7 +633,19 @@ function monthLabel(date) {
   return (shifted.getUTCMonth() + 1) + '月';
 }
 
-function periodDefinition(periodType, now) {
+function periodDefinition(periodType, now, firstAt) {
+  if (periodType === 'all') {
+    const first = new Date(firstAt || now), firstMonth = startOfShanghaiMonth(first), currentMonth = startOfShanghaiMonth(now);
+    const a = new Date(firstMonth.getTime()+8*3600000), b = new Date(currentMonth.getTime()+8*3600000);
+    const span=(b.getUTCFullYear()-a.getUTCFullYear())*12+b.getUTCMonth()-a.getUTCMonth()+1;
+    const step=span<=12?1:span<=36?3:span<=144?12:Math.ceil(span/12);
+    const periods=[];
+    for(let start=firstMonth;start<=currentMonth;start=addShanghaiMonths(start,step)) {
+      const end=addShanghaiMonths(start,step), label=dateId(start).slice(0,7);
+      periods.push({start,end,id:'all:'+label,label:step>=12?label.slice(0,4):label,fullLabel:label+(step>1?'—'+dateId(addDays(end,-1)).slice(0,7):'')});
+    }
+    return {type:'all',periods,current:{id:'all',start:new Date(0),end:new Date(now.getTime()+1),fullLabel:firstAt?'全部数据 · '+dateId(first)+'—'+dateId(now):'全部数据'},trendTitle:'全部历史 · '+(step===1?'按月':step===3?'每3个月':step===12?'每12个月':'每'+step+'个月')};
+  }
   const type = periodType === 'month' ? 'month' : 'week';
   const currentStart = type === 'month' ? startOfShanghaiMonth(now) : startOfShanghaiWeek(now);
   const count = type === 'month' ? 6 : 8;
@@ -665,7 +677,7 @@ function buildPeriodSummary(events, reflections, periodType) {
   const eventIds = events.reduce((result, item) => { result[item._id] = true; return result; }, {});
   const latest = {};
   const histories = {};
-  reflections.forEach(item => {
+  reflections.slice().sort((a, b) => new Date(a.reviewed_at || a.created_at || 0) - new Date(b.reviewed_at || b.created_at || 0) || Number(a.sequence_no || 0) - Number(b.sequence_no || 0) || String(a._id).localeCompare(String(b._id))).forEach(item => {
     if (!eventIds[item.trade_event_id]) return;
     latest[item.trade_event_id] = item;
     histories[item.trade_event_id] = histories[item.trade_event_id] || {};
@@ -681,7 +693,6 @@ function buildPeriodSummary(events, reflections, periodType) {
   }, {});
   const reasonDistribution = Object.keys(reasonCounts)
     .sort((a, b) => reasonCounts[b] - reasonCounts[a])
-    .slice(0, 3)
     .map(key => ({
       key: key,
       label: reasonLabels[key] || key,
@@ -700,7 +711,7 @@ function buildPeriodSummary(events, reflections, periodType) {
   ['panic_sell', 'chase_high', 'frequent_adjustment', 'delayed_reduce'].forEach(key => {
     if (focuses.indexOf(key) === -1) focuses.push(key);
   });
-  const periodName = periodType === 'month' ? '本月' : '本周';
+  const periodName = periodType === 'all' ? '全部记录中' : periodType === 'month' ? '本月' : '本周';
   return {
     eventCount: events.length,
     plannedCount: planned.length,
@@ -778,22 +789,21 @@ function buildChangeClue(periods, summaries, periodType) {
 }
 
 async function getPeriodReview(openid, payload) {
-  const definition = periodDefinition(payload && payload.period_type, new Date());
-  const earliest = definition.periods[0].start;
-  const events = await queryAll(COLLECTIONS.EVENTS, {
-    _openid: openid,
-    is_deleted: false,
-    execution_status: 'executed',
-    executed_at: command.gte(earliest)
-  }, 'executed_at');
-  const reflections = await queryAll(COLLECTIONS.REFLECTIONS, {
-    _openid: openid,
-    is_deleted: false,
-    reviewed_at: command.gte(earliest)
-  }, 'reviewed_at');
+  const model = require('./review-analysis');
+  const [rawEvents, reflections] = await Promise.all([readAssetEvents(openid), readReviewReflections(openid)]);
+  const now=new Date();
+  const validEvents=rawEvents.filter(item=>model.status(item)==='executed'&&model.eventTime(item)<=now.getTime());
+  const dates=validEvents.map(model.eventTime).filter(value=>value>0);
+  const definition=periodDefinition(payload && payload.period_type,now,dates.length?dates.reduce((a,b)=>Math.min(a,b),Infinity):null);
+  const earliest = definition.type==='all'?new Date(0):definition.periods[0].start;
+  const events = validEvents.filter(item => model.eventTime(item) >= earliest.getTime())
+    .map(item => Object.assign({}, item, { executed_at: new Date(model.eventTime(item)) }));
+  const effectiveReflections=reflections.filter(item=>new Date(item.reviewed_at||item.created_at||0)<=now);
   const summaries = definition.periods.map(period => {
     const periodEvents = events.filter(item => inPeriod(item.executed_at, period));
-    const periodReflections = reflections.filter(item => inPeriod(item.reviewed_at || item.created_at, period));
+    // A later review still belongs to the original operation's cohort.
+    const ids = new Set(periodEvents.map(item => item._id));
+    const periodReflections = effectiveReflections.filter(item => ids.has(item.trade_event_id));
     return buildPeriodSummary(periodEvents, periodReflections, definition.type);
   });
   const trend = definition.periods.map((period, index) => ({
@@ -805,21 +815,26 @@ async function getPeriodReview(openid, payload) {
   const periodSummaries = definition.periods.map((period, index) => Object.assign({
     periodId: period.id,
     periodLabel: period.fullLabel,
+    rangeStart: dateId(period.start),
+    rangeEnd: dateId(new Date(Math.min(period.end.getTime()-1,now.getTime()))),
     shortLabel: period.label
   }, summaries[index]));
-  const current = Object.assign({}, summaries[summaries.length - 1]);
-  const changeClue = buildChangeClue(definition.periods, summaries, definition.type);
+  const current = definition.type==='all'?buildPeriodSummary(events,effectiveReflections,'all'):Object.assign({}, summaries[summaries.length - 1]);
+  const changeClue = definition.type==='all'?{ready:false,text:''}:buildChangeClue(definition.periods, summaries, definition.type);
   const config = await ensureUserConfig(openid);
   current.periodType = definition.type;
   current.periodId = definition.current.id;
   current.periodLabel = definition.current.fullLabel;
   current.trend = trend;
-  current.trendInsight = trendInsight(trend);
+  current.trendInsight = definition.type==='all'?'覆盖全部有时间记录的已执行操作，每个时段单独计算。':trendInsight(trend);
+  current.trendTitle=definition.trendTitle || (definition.type==='week'?'最近 8 周':'最近 6 个月');
+  current.undatedCount=events.filter(item=>model.eventTime(item)===0).length;
   current.periodSummaries = periodSummaries;
   current.changeClueReady = changeClue.ready;
   current.changeClue = changeClue.text;
   current.currentFocus = config.current_focus || '';
-  current.calculatedAt = new Date();
+  current.calculatedAt = now;
+  current.calculatedLabel=new Date(now.getTime()+8*3600000).toISOString().slice(0,16).replace('T',' ');
   const id = metricId(openid, definition.type, definition.current.id);
   await db.collection(COLLECTIONS.METRICS).doc(id).set({
     data: withoutId(Object.assign({
@@ -828,6 +843,7 @@ async function getPeriodReview(openid, payload) {
       schema_version: SCHEMA_VERSION,
       period_type: definition.type,
       period_id: definition.current.id,
+      metric_version: 4,
       created_at: SERVER_DATE(),
       updated_at: SERVER_DATE(),
       is_deleted: false,
@@ -839,58 +855,27 @@ async function getPeriodReview(openid, payload) {
 }
 
 async function getPeriodDetail(openid, payload) {
-  const definition = periodDefinition(payload && payload.period_type, new Date());
   const periodId = string(payload && payload.period_id, 20);
   const metric = string(payload && payload.metric, 30);
   const reasonKey = string(payload && payload.reason_key, 50);
-  const period = definition.periods.find(item => item.id === periodId);
   const allowedMetrics = ['planned', 'impulsive', 'reviewed', 'regret', 'reason'];
-  if (!period || allowedMetrics.indexOf(metric) === -1 || (metric === 'reason' && !reasonKey)) return fail('VALIDATION_ERROR');
+  if (allowedMetrics.indexOf(metric) === -1 || (metric === 'reason' && !reasonKey)) return fail('VALIDATION_ERROR');
 
-  const eventCandidates = await queryAll(COLLECTIONS.EVENTS, {
-    _openid: openid,
-    is_deleted: false,
-    execution_status: 'executed',
-    executed_at: command.gte(period.start)
-  }, 'executed_at');
-  const events = eventCandidates.filter(item => inPeriod(item.executed_at, period));
-  const reflectionCandidates = await queryAll(COLLECTIONS.REFLECTIONS, {
-    _openid: openid,
-    is_deleted: false,
-    reviewed_at: command.gte(period.start)
-  }, 'reviewed_at');
-  const reflections = reflectionCandidates.filter(item => inPeriod(item.reviewed_at || item.created_at, period));
-  const latestByEvent = {};
-  reflections.forEach(item => { latestByEvent[item.trade_event_id] = item; });
+  const model = require('./review-analysis');
+  const [rawEvents, reflectionCandidates] = await Promise.all([readAssetEvents(openid), readReviewReflections(openid)]);
+  const now=Date.now(),dates=rawEvents.filter(item=>model.status(item)==='executed'&&model.eventTime(item)>0&&model.eventTime(item)<=now).map(model.eventTime);
+  const definition=periodDefinition(payload && payload.period_type,new Date(now),dates.length?dates.reduce((a,b)=>Math.min(a,b),Infinity):null);
+  const period=periodId==='all'&&definition.type==='all'?definition.current:definition.periods.find(item=>item.id===periodId);
+  if(!period)return fail('VALIDATION_ERROR');
+  const candidates=rawEvents.filter(item=>model.status(item)==='executed'&&(period.id==='all'||inPeriod(new Date(model.eventTime(item)),period)));
+  const options={mode:'detail',range:'all',cursor:payload.paginated===true?(payload.cursor||null):null,_legacy_full:payload.paginated!==true};
+  if(metric==='planned'||metric==='impulsive')options.plan_status=metric;
+  if(metric==='reviewed')options.reviewed=true;
+  if(metric==='regret')options.feeling='regret';
+  if(metric==='reason')options.reason_key=reasonKey;
+  try{return ok(Object.assign({periodId:period.id,periodLabel:period.fullLabel,metric},model.project(candidates,reflectionCandidates,options,now)));}
+  catch(error){if(['INVALID_CURSOR','VALIDATION_ERROR'].includes(error.message))return fail(error.message);throw error;}
 
-  const filtered = events.filter(item => {
-    if (metric === 'planned') return item.plan_status === 'planned';
-    if (metric === 'impulsive') return item.plan_status === 'impulsive';
-    if (metric === 'reviewed') return Boolean(latestByEvent[item._id]);
-    if (metric === 'regret') return latestByEvent[item._id] && latestByEvent[item._id].feeling === 'regret';
-    return item.reason_key === reasonKey;
-  }).sort((a, b) => new Date(b.executed_at || b.created_at) - new Date(a.executed_at || a.created_at));
-
-  return ok({
-    periodId: period.id,
-    periodLabel: period.fullLabel,
-    metric: metric,
-    items: filtered.map(item => {
-      const reflection = latestByEvent[item._id];
-      return {
-        _id: item._id,
-        symbol: item.symbol,
-        action: item.action,
-        action_label: item.action_label || ACTIONS[item.action] || item.action,
-        reason_key: item.reason_key,
-        reason_label: item.reason_label || item.reason_key,
-        plan_status: item.plan_status,
-        plan_label: PLANS[item.plan_status] || '不确定',
-        latest_feeling_label: reflection ? reflection.feeling_label : '',
-        executed_at: item.executed_at || item.created_at
-      };
-    })
-  });
 }
 
 async function migrateUserData(openid) {
@@ -970,14 +955,21 @@ async function migrateUserData(openid) {
   });
 }
 
-async function readAssetEvents(openid) {
+const EVENT_READ_FIELDS = Object.fromEntries(('_id _openid is_deleted symbol market market_source asset_type stage execution_status action action_label reason_key reason_label plan_status created_at recorded_at occurred_at executed_at review_due_at reflection_count latest_feeling latest_feeling_label latest_reflection_at optional_note').split(' ').map(key => [key,true]));
+const REFLECTION_READ_FIELDS = Object.fromEntries(('_id _openid is_deleted trade_event_id feeling feeling_label regret_reason_label optional_note reviewed_at created_at sequence_no event_age_hours').split(' ').map(key => [key,true]));
+
+async function readAssetEvents(openid, options = {}) {
   // Keyset scan across the user's entire history; never truncate at the first page.
   let lastId = ''; let items = [];
   while (true) {
     const where = { _openid: openid, is_deleted: false };
+    if (options.reasonKey && options.reasonKey !== '__missing') where.reason_key = options.reasonKey;
     if (lastId) where._id = command.gt(lastId);
-    const result = await db.collection(COLLECTIONS.EVENTS).where(where).orderBy('_id', 'asc').limit(100).get();
+    let query = db.collection(COLLECTIONS.EVENTS).where(where).orderBy('_id', 'asc').limit(100);
+    if (options.compact) query = query.field(options.asset ? Object.assign({},EVENT_READ_FIELDS,{attachments:true}) : EVENT_READ_FIELDS);
+    const result = await query.get();
     const batch = result.data || [];
+    if(options.asset)batch.forEach(item=>{item.attachment_count=(item.attachments || []).length;delete item.attachments;});
     items = items.concat(batch);
     if (batch.length < 100) return items;
     lastId = batch[batch.length - 1]._id;
@@ -994,8 +986,7 @@ function assetLinks(config) {
 
 async function assetRequest(openid, action, payload) {
   if (payload.key && !assetTracking.parse(payload.key)) return fail('INVALID_ASSET');
-  const config = await ensureUserConfig(openid);
-  const events = await readAssetEvents(openid);
+  const [config, events] = await Promise.all([ensureUserConfig(openid), readAssetEvents(openid, {compact:payload.compact === true,asset:payload.compact === true})]);
   const links = assetLinks(config);
   if (action === 'mergeAsset' || action === 'undoAssetMerge') {
     return db.runTransaction(async transaction => {
@@ -1015,10 +1006,88 @@ async function assetRequest(openid, action, payload) {
     });
   }
   const result = assetTracking.read(events, links, action, payload, Date.now());
+  if (payload.compact === true && action === 'listAssetSummaries') {
+    result.list.forEach(item => { delete item.last_executed; });
+  }
   if (action === 'getAssetHistory') {
     result.merged_sources = Object.keys(links).filter(key => assetTracking.resolve(key, links) === result.key).map(key => ({key:key,target:links[key],symbol:assetTracking.parse(key).symbol}));
   }
   return ok(result);
+}
+
+async function readReviewReflections(openid, options = {}) {
+  if (options.eventIds && !options.eventIds.length) return [];
+  let lastId = ''; let items = [];
+  while (true) {
+    const where = { _openid: openid, is_deleted: false };
+    if (options.eventIds) where.trade_event_id = command.in(options.eventIds);
+    if (lastId) where._id = command.gt(lastId);
+    let query = db.collection(COLLECTIONS.REFLECTIONS).where(where).orderBy('_id', 'asc').limit(100);
+    if (options.compact) {
+      const fields = Object.assign({}, REFLECTION_READ_FIELDS);
+      if (options.summary) { delete fields.optional_note; delete fields.regret_reason_label; delete fields.event_age_hours; }
+      query = query.field(fields);
+    }
+    const result = await query.get();
+    const batch = result.data || [];
+    items = items.concat(batch);
+    if (batch.length < 100) return items;
+    lastId = batch[batch.length - 1]._id;
+  }
+}
+
+async function getBehaviorReview(openid, payload) {
+  const model = require('./review-analysis');
+  const now = Date.now();
+  // Validate before scanning. Any failed page rejects the whole result.
+  try { model.range(payload, now); } catch (error) { return fail(error.message); }
+  if (payload.compact === true && !payload.mode && !payload.reminder_source) {
+    const [events, reflections] = await Promise.all([readAssetEvents(openid, {compact:true}), readReviewReflections(openid, {compact:true,summary:true})]);
+    try { return ok(model.project(events, reflections, payload, now)); }
+    catch (error) { if (['INVALID_RANGE','VALIDATION_ERROR','INVALID_CURSOR'].includes(error.message)) return fail(error.message); throw error; }
+  }
+  if (payload.compact === true && !payload.reminder_source && payload.mode !== 'comparison') {
+    // Details read only the requested reason. Never truncate the matching history.
+    let events;
+    try {
+      model.scopeEvents([], payload, now);
+      events = await readAssetEvents(openid, {compact:true, reasonKey:payload.reason_key});
+      events = model.scopeEvents(events, payload, now);
+    } catch (error) {
+      if (['INVALID_RANGE','VALIDATION_ERROR'].includes(error.message)) return fail(error.message);
+      throw error;
+    }
+    // For a small subset use the trade-id index; for broad scopes scan once rather than N batches.
+    const reflections = await readReviewReflections(openid, {compact:true, eventIds:events.length <= 20 ? events.map(e => e._id) : null});
+    try { return ok(model.project(events, reflections, Object.assign({},payload,{_legacy_full:false}), now)); }
+    catch (error) { if (['INVALID_RANGE','VALIDATION_ERROR','INVALID_CURSOR'].includes(error.message)) return fail(error.message); throw error; }
+  }
+  const [events, reflections, config] = await Promise.all([readAssetEvents(openid), readReviewReflections(openid), ensureUserConfig(openid)]);
+  try { return ok(model.project(events, reflections, Object.assign({},payload,{_legacy_full:false}), now, config.review_reminder, assetLinks(config))); }
+  catch (error) { if (['INVALID_RANGE', 'VALIDATION_ERROR', 'INVALID_CURSOR'].includes(error.message)) return fail(error.message); throw error; }
+}
+
+async function saveReviewReminder(openid, payload) {
+  const text = string(payload.text, 200), key = string(payload.reason_key, 50), action = string(payload.action, 20), requestId = string(payload.client_request_id, 80);
+  if (!text || !key || !requestId || (action && !ACTIONS[action])) return fail('VALIDATION_ERROR');
+  const events = await readAssetEvents(openid);
+  const model = require('./review-analysis');
+  const matching = events.filter(item => model.status(item) === 'executed' && item.reason_key === key && (!action || item.action === action));
+  if (!matching.length) return fail('VALIDATION_ERROR');
+  const config = await ensureUserConfig(openid);
+  const id = 'review_rule_' + hash(openid + ':' + requestId);
+  const existing = await db.collection(COLLECTIONS.RULES).where({ _id: id, _openid: openid }).limit(1).get();
+  if (existing.data && existing.data.length) return ok({ reminder: config.review_reminder || null, duplicate: true });
+  const now = new Date();
+  const reminder = { id, text, reason_key: key, reason_label: matching[0].reason_label || key, action, created_at: now, source_event_ids: matching.sort((a,b)=>model.eventTime(b)-model.eventTime(a)).slice(0,10).map(item=>item._id) };
+  return db.runTransaction(async transaction => {
+    const stored = await transaction.collection(COLLECTIONS.CONFIG).doc(config._id).get();
+    if (!stored.data || stored.data._openid !== openid) return fail('AUTH_ERROR');
+    if (stored.data.review_reminder && stored.data.review_reminder.id === id) return ok({ reminder: stored.data.review_reminder, duplicate: true });
+    await transaction.collection(COLLECTIONS.RULES).doc(id).set({ data: Object.assign({}, reminder, { _openid: openid, schema_version: SCHEMA_VERSION, rule_key: 'review_reminder', version: 1, previous_rule_id: stored.data.review_reminder ? stored.data.review_reminder.id : null, created_at: SERVER_DATE(), updated_at: SERVER_DATE(), is_deleted: false }) });
+    await transaction.collection(COLLECTIONS.CONFIG).doc(config._id).update({ data: { review_reminder: command.set(reminder), updated_at: SERVER_DATE() } });
+    return ok({ reminder });
+  });
 }
 
 exports.main = async event => {
@@ -1044,6 +1113,8 @@ exports.main = async event => {
     if (action === 'getWeeklyReview') return await getPeriodReview(openid, { period_type: 'week' });
     if (action === 'getPeriodReview') return await getPeriodReview(openid, payload);
     if (action === 'getPeriodDetail') return await getPeriodDetail(openid, payload);
+    if (action === 'getBehaviorReview') return await getBehaviorReview(openid, payload);
+    if (action === 'saveReviewReminder') return await saveReviewReminder(openid, payload);
     if (action === 'migrateUserData') return await migrateUserData(openid);
     return fail('UNKNOWN_ACTION', { trace_id: traceId });
   } catch (error) {

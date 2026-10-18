@@ -85,3 +85,11 @@ user_config 1 ── n trade_events 1 ── n reflection_snapshots
 - 趋势只统计交易行为，不接入收益或事后股价，避免用结果改写当时决策；
 - 没有交易的周期以断点处理，不以0分惩罚用户；
 - 指标快照包含 `period_type`、`period_id`、当前摘要和趋势序列，可随原始数据重新生成。
+
+## 理由与感受复盘（2026-10-18）
+
+复盘新增按操作归属时间关联全部后续回看的汇总，周/月 `period_metrics.metric_version` 升为4。每笔操作使用最近有效感受计一次，感受变化使用完整回看历史；详情、时间边界和未知枚举口径见 [review-analysis.md](review-analysis.md)。
+
+现有 `personal_rules` 增加不可变的 review_reminder 版本，包含触发理由、操作类型、提醒文字、来源操作ID和 previous_rule_id；`user_config.review_reminder` 为当前激活版本投影。两者事务写入，用户确认前不保存；重复请求幂等，不覆盖旧版。原操作和回看不迁移、不改写。
+
+累计复盘快照使用 period_type=all / period_id=all；覆盖全部已执行操作，趋势按完整历史自适应分段，单笔明细仍以操作时间+ID分页。首次/最近感受为只读投影选项，不改写原始回看。

@@ -76,8 +76,8 @@ const tick = () => new Promise(setImmediate);
   assert.equal(recommended.focusKeys[0], 'panic_sell', 'existing recommendation order survives');
   assert(recommended.focusKeys.includes('follow_plan'));
   const page = Object.assign({}, pageDefinition, {
-    data: Object.assign({}, pageDefinition.data, {summary, focusExpanded: true}),
-    _reviewCache: {week: {}},
+    data: Object.assign({}, pageDefinition.data),
+    _focusVersion: 0,
     setData(patch) {Object.assign(this.data, patch);}
   });
   await user.module.exports.getConfig();
@@ -86,7 +86,7 @@ const tick = () => new Promise(setImmediate);
   failNext = true;
   page.chooseFocus(tap); await tick();
   assert.equal(page.data.focusSaving, false);
-  assert.equal(page.data.focusExpanded, true, 'failure keeps choices available to retry');
+  assert.equal(page.data.selectedFocusLabel, '', 'failure leaves the optional footer unchanged');
   assert.equal(page.data.selectedFocus, '', 'failed save never marks selection');
   assert.equal(transactions, 0);
   assert.equal(user.module.exports.getCachedConfig().current_focus, 'legacy', 'failed saves preserve shared cache');
@@ -95,8 +95,7 @@ const tick = () => new Promise(setImmediate);
   assert.equal(requests - before, 1, 'rapid taps share one save');
   assert.equal(page.data.selectedFocus, 'delayed_reduce');
   assert.equal(page.data.selectedFocusLabel, '拖延减仓');
-  assert.equal(page.data.focusExpanded, false, 'success collapses choices immediately');
-  assert.equal(page._reviewCache.week.currentFocus.key, 'delayed_reduce');
+  assert.equal(page.data.focusSaving, false, 'success releases the saving guard');
   assert.equal(invalidations.length, 1);
   assert.equal(config.current_focus.key, 'delayed_reduce');
   assert.equal(config.current_focus.label, '拖延减仓');
@@ -139,9 +138,8 @@ const tick = () => new Promise(setImmediate);
   assert.equal(saved[0]._openid, 'test_owner');
   assert.equal(saved[0].behavior_key, 'delayed_reduce');
   assert.equal(saved[0].behavior_label, '拖延减仓');
-  page.data.focusExpanded = true; page.chooseFocus(tap); await tick();
+  page.chooseFocus(tap); await tick();
   assert.equal(requests - before, 1, 'selected option does not write again');
-  assert.equal(page.data.focusExpanded, false);
   const invalid = await service.module.exports.saveWeeklyFocus('unknown');
   assert.equal(invalid.success, false);
   const backendInvalid = await backend.exports.main({action: 'saveWeeklyFocus', payload: {key: 'unknown'}});

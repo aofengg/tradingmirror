@@ -19,8 +19,7 @@ Page({
     loading: true,
     hasLoaded: false,
     loadError: false,
-    events: [],
-    todoEvents: [],
+    eventCount: 0,
     filteredEvents: [],
     filter: 'all',
     todoFilter: 'all',
@@ -58,7 +57,7 @@ Page({
     }
     var requestedFilter = getApp().globalData._recordsInitialFilter;
     if (requestedFilter) this.setData({viewMode:'time'});
-    else if (this.data.viewMode === 'asset') { this.loadAssets(false, Math.max(20, this.data.assetItems.length)); return; }
+    else if (this.data.viewMode === 'asset') { if (!this._assetsCurrent()) this.loadAssets(false, Math.max(20, this.data.assetItems.length)); return; }
     if (requestedFilter) {
       var requestedTodo = getApp().globalData._recordsInitialTodoFilter || 'all';
       this.setData({ filter: requestedFilter, todoFilter: requestedTodo },function(){wx.pageScrollTo({scrollTop:0,duration:0});});
@@ -66,13 +65,14 @@ Page({
       getApp().globalData._recordsInitialFilter = '';
       if (this.data.hasLoaded) this._applyFilter();
     }
-    var needsRefresh = this._loadedRevision !== getApp().getPageRevision('records');
+    var needsRefresh = !!requestedFilter || this._loadedRevision !== getApp().getPageRevision('records');
     if (this.data.hasLoaded && !needsRefresh && this._lastLoadedAt && Date.now() - this._lastLoadedAt < 30000) return;
     this._loadEvents();
   },
 
   onPullDownRefresh: function () {
     assetService.clearCache();
+    tradeService.clearReadCache();
     if (this.data.viewMode === 'asset') this.loadAssets();
     else this._loadEvents();
   },
@@ -81,20 +81,24 @@ Page({
     var self = this;
     var revision = getApp().getPageRevision('records');
     var version=++self._eventsVersion;
-    var restoreCount=Math.max(20,self.data.events.length);
+    self._eventsRefreshing = true;
+    var restoreCount=Math.max(20,(self._events || []).length);
     var restored=[];
-    function readEvents(cursor){return tradeService.getEventPage(20,cursor).then(function(result){
+    var filter = self.data.filter;
+    function readEvents(cursor){return tradeService.getEventPage(20,cursor,filter).then(function(result){
       if(!result.success)throw new Error(result.error||'LOAD_FAILED');
       if(version!==self._eventsVersion)return result;
       restored=restored.concat(result.data.list);
       if(restored.length<restoreCount&&result.data.hasMore&&result.data.nextCursor)return readEvents(result.data.nextCursor);
       return {success:true,data:{list:restored,hasMore:result.data.hasMore,nextCursor:result.data.nextCursor}};
     });}
-    self.setData({ loading: !self.data.hasLoaded, loadError: false });
-    getApp().waitForLogin().then(function () {
+    self.setData({ loading: !self.data.eventCount, loadError: false, moreError:false, loadingMore:false });
+    return getApp().waitForLogin().then(function () {
       return Promise.all([
-        readEvents(null),
-        tradeService.getTodoOverview()
+        filter === 'pending' ? Promise.resolve({success:true,data:{list:[],hasMore:false,nextCursor:null}}) : readEvents(null),
+        filter === 'pending' ? tradeService.getTodoOverview() : tradeService.getTodoCounts().then(function (res) {
+          return res.success ? {success:true,data:{confirmItems:[],reviewItems:[],counts:res.data}} : res;
+        })
       ]);
     }).then(function (results) {
       if(version!==self._eventsVersion)return;
@@ -109,11 +113,13 @@ Page({
       }).concat(todoData.reviewItems.map(function (item) {
         return Object.assign({}, item, { todo_type: 'review' });
       }));
+      self._events = res.data.list;
+      self._todoEvents = todoEvents;
+      self._todoPages = todoData.pages || {};
       self.setData({
         loading: false,
         hasLoaded: true,
-        events: res.data.list,
-        todoEvents: todoEvents,
+        eventCount: filter === 'pending' ? todoData.counts.all : res.data.list.length,
         todoUnavailable: !todoRes.success,
         todoCounts: todoData.counts,
         todoFilters: buildTodoFilters(todoData.counts),
@@ -128,6 +134,7 @@ Page({
       console.error('记录加载失败', error);
       self.setData({ loading: false, loadError: true });
     }).then(function () {
+      if(version===self._eventsVersion)self._eventsRefreshing=false;
       wx.stopPullDownRefresh();
     });
   },
@@ -135,39 +142,71 @@ Page({
   onReachBottom: function () {
     if (this.data.viewMode === 'asset') { if (this.data.assetMore && !this.data.assetLoading) this.loadAssets(true); return; }
     var self = this;
-    if (self.data.filter === 'pending') return;
+    if (self._eventsRefreshing || self.data.loadError) return;
+    if (self.data.filter === 'pending') { self._loadMoreTodos(); return; }
     if (self.data.loadingMore || !self.data.hasMore || !self.data.nextCursor) return;
     self.setData({ loadingMore: true });
     var version=self._eventsVersion;
-    tradeService.getEventPage(20, self.data.nextCursor).then(function (res) {
+    tradeService.getEventPage(20, self.data.nextCursor, self.data.filter).then(function (res) {
       if(version!==self._eventsVersion)return;
       if (!res.success) throw new Error(res.error || 'LOAD_MORE_FAILED');
-      self.setData({
+      var start = self._events.length;
+      self._events = self._events.concat(res.data.list);
+      var patch = {
         loadingMore: false,
         moreError: false,
-        events: self.data.events.concat(res.data.list),
+        eventCount: self._events.length,
         hasMore: res.data.hasMore,
         nextCursor: res.data.nextCursor
+      };
+      res.data.list.forEach(function (item, index) {
+        patch['filteredEvents[' + (start + index) + ']'] = Object.assign({}, assetService.decorate(item), {swipe_offset:0});
       });
-      self._applyFilter();
+      self.setData(patch);
     }).catch(function () {
       if(version!==self._eventsVersion)return;
       self.setData({ loadingMore: false, moreError: true });
     });
   },
 
+  _loadMoreTodos: function () {
+    if(this._eventsRefreshing || this.data.loadingMore || !this.data.hasMore)return;
+    var self=this,version=this._eventsVersion;
+    var kinds=['confirm','review'].filter(function(kind){
+      return (self.data.todoFilter==='all'||self.data.todoFilter===kind) && self._todoPages[kind] && self._todoPages[kind].more;
+    });
+    if(!kinds.length)return;
+    self.setData({loadingMore:true,moreError:false});
+    Promise.all(kinds.map(function(kind){return tradeService.getTodoPage(kind,self._todoPages[kind].cursor);})).then(function(results){
+      if(version!==self._eventsVersion)return;
+      if(results.some(function(res){return !res.success;}))throw new Error('LOAD_MORE_FAILED');
+      kinds.forEach(function(kind,index){
+        var result=results[index].data,seen={};
+        self._todoEvents.forEach(function(item){seen[item._id]=true;});
+        self._todoEvents=self._todoEvents.concat(result.list.filter(function(item){return !seen[item._id];}).map(function(item){return Object.assign({},item,{todo_type:kind});}));
+        var count=self._todoEvents.filter(function(item){return item.todo_type===kind;}).length;
+        self._todoPages[kind]={cursor:result.nextCursor,more:!!result.nextCursor&&result.hasMore&&count<self.data.todoCounts[kind]};
+      });
+      self.setData({loadingMore:false,moreError:false});
+      self._applyFilter();
+    }).catch(function(){if(version===self._eventsVersion)self.setData({loadingMore:false,moreError:true});});
+  },
+
   chooseFilter: function (event) {
     var nextFilter = event.currentTarget.dataset.filter;
+    if (['all','planned','impulsive','pending'].indexOf(nextFilter) === -1) return;
     if(nextFilter===this.data.filter)return;
-    var patch = { filter: nextFilter };
+    this._events = [];
+    var patch = { filter: nextFilter, eventCount:0, filteredEvents:[], nextCursor:null, hasMore:true };
     if (nextFilter === 'pending' && this.data.filter !== 'pending') patch.todoFilter = 'all';
     this.setData(patch);
-    this._applyFilter();
+    this._loadEvents();
   },
 
   chooseTodoFilter: function (event) {
+    if(['all','confirm','review'].indexOf(event.currentTarget.dataset.filter)===-1)return;
     if(event.currentTarget.dataset.filter===this.data.todoFilter)return;
-    this.setData({ todoFilter: event.currentTarget.dataset.filter });
+    this.setData({ todoFilter: event.currentTarget.dataset.filter, moreError:false });
     this._applyFilter();
   },
 
@@ -176,8 +215,8 @@ Page({
     var list;
     if (filter === 'pending') {
       var todoFilter = this.data.todoFilter;
-      var confirmItems = this.data.todoEvents.filter(function (item) { return item.todo_type === 'confirm'; });
-      var reviewItems = this.data.todoEvents.filter(function (item) { return item.todo_type === 'review'; });
+      var confirmItems = (this._todoEvents || []).filter(function (item) { return item.todo_type === 'confirm'; });
+      var reviewItems = (this._todoEvents || []).filter(function (item) { return item.todo_type === 'review'; });
       if (todoFilter === 'confirm') reviewItems = [];
       if (todoFilter === 'review') confirmItems = [];
       list = confirmItems.map(function (item, index) {
@@ -192,7 +231,7 @@ Page({
         });
       }, this));
     } else {
-      list = this.data.events.filter(function (item) {
+      list = (this._events || []).filter(function (item) {
         if (filter === 'all') return true;
         return item.plan_status === filter;
       });
@@ -204,6 +243,10 @@ Page({
         return Object.assign({}, assetService.decorate(item), { swipe_offset: 0 });
       })
     });
+    if(filter==='pending') {
+      var pages=this._todoPages || {};
+      this.setData({hasMore:['confirm','review'].some(function(kind){return (todoFilter==='all'||todoFilter===kind)&&pages[kind]&&pages[kind].more;})});
+    }
   },
 
   onCardTouchStart: function (event) {
@@ -283,7 +326,7 @@ Page({
     var self=this; var top=this._viewScroll[mode] || 0;
     this.setData({viewMode:mode},function(){wx.pageScrollTo({scrollTop:top,duration:0});});
     wx.setStorageSync('records_view_mode',mode);
-    if (mode === 'asset') this.loadAssets(false, Math.max(20, this.data.assetItems.length));
+    if (mode === 'asset' && !this._assetsCurrent()) this.loadAssets(false, Math.max(20, this.data.assetItems.length));
     else if (!this.data.hasLoaded || this._loadedRevision !== getApp().getPageRevision('records')) this._loadEvents();
   },
 
@@ -301,9 +344,15 @@ Page({
     this.loadAssets();
   },
 
+  _assetsCurrent: function () {
+    return this._assetScope === JSON.stringify([this.data.assetQuery,this.data.assetTodoOnly]) &&
+      this._assetRevision === getApp().getPageRevision('records') && Date.now() - this._assetLoadedAt < 30000 && !this.data.assetFailed;
+  },
+
   loadAssets: function (append, restoreCount) {
     append=append===true;
     var self=this; var version=++this._assetVersion;
+    var revision=getApp().getPageRevision('records');
     this.setData({assetLoading:true,assetFailed:false});
     var options={query:this.data.assetQuery,todoOnly:this.data.assetTodoOnly,cursor:append?this.data.assetCursor:null};
     var combined=append?this.data.assetItems.slice():[];
@@ -312,7 +361,12 @@ Page({
       combined=combined.concat(result.list);
       if(!append && restoreCount && combined.length<restoreCount && result.hasMore){options.cursor=result.nextCursor;return next();}
       var seen={}; var list=combined.filter(function(item){if(seen[item.key])return false;seen[item.key]=true;return true;});
-      self.setData({assetItems:list,assetCursor:result.nextCursor,assetMore:result.hasMore,assetLoading:false});
+      self._assetScope = JSON.stringify([self.data.assetQuery,self.data.assetTodoOnly]);
+      self._assetRevision = revision; self._assetLoadedAt = Date.now();
+      var patch={assetCursor:result.nextCursor,assetMore:result.hasMore,assetLoading:false};
+      if(append){for(var i=self.data.assetItems.length;i<list.length;i++)patch['assetItems['+i+']']=list[i];}
+      else patch.assetItems=list;
+      self.setData(patch);
     });}
     next().catch(function(){if(version===self._assetVersion)self.setData({assetLoading:false,assetFailed:true});}).then(function(){wx.stopPullDownRefresh();});
   },
@@ -328,19 +382,25 @@ Page({
   },
 
   openReflection: function (event) {
-    if (this._suppressCardTap) return;
+    if (this._suppressCardTap || this._navigating) return;
     if (this._openSwipeId) {
       this._setSwipeOffset(this._openSwipeId, 0);
       return;
     }
     var id = event.currentTarget.dataset.id;
-    if (id) wx.navigateTo({ url: constants.ROUTES.REFLECTION + '?id=' + encodeURIComponent(id) + '&mode=detail' });
+    if (id) this._navigateRecord(id, 'detail');
+  },
+
+  _navigateRecord: function (id, mode) {
+    if(this._navigating)return;
+    var self=this;this._navigating=true;
+    wx.navigateTo({url:constants.ROUTES.REFLECTION+'?id='+encodeURIComponent(id)+'&mode='+mode,complete:function(){self._navigating=false;}});
   },
 
   openConfirmation: function (event) { this.openReflection(event); },
   startReview: function (event) {
     var id=event.currentTarget.dataset.id;
-    if(id)wx.navigateTo({url:constants.ROUTES.REFLECTION+'?id='+encodeURIComponent(id)+'&mode=review'});
+    if(id)this._navigateRecord(id,'review');
   },
 
   openRecordMenu: function (event) {

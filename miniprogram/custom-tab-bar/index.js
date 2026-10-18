@@ -15,8 +15,9 @@ Component({
   methods: {
     switchTab: function (event) {
       var index = Number(event.currentTarget.dataset.index);
-      if (index === this.data.selected) return;
-      wx.switchTab({ url: event.currentTarget.dataset.path });
+      if (index === this.data.selected || this._switching) return;
+      var self=this;this._switching=true;
+      wx.switchTab({ url: event.currentTarget.dataset.path, complete:function(){self._switching=false;} });
     }
   }
 });

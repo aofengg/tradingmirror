@@ -32,6 +32,7 @@ Component({
         if (!self._ready || version !== self._version) return;
         if (!res.success) throw new Error('LOAD_FAILED');
         self._refreshing=false;self._refreshedAt=Date.now();self._loadedKey=key;
+        self._cursor=res.data.nextCursor;
         self.setData({ loading:false, checked:true, count: res.data.count, items: res.data.items, previewItems: res.data.items.slice(0, 3), hasMore: res.data.hasMore });
       }).catch(function () {if(self._ready&&version===self._version){self._refreshing=false;self.setData({loading:false,failed:true});}});
     },
@@ -58,12 +59,13 @@ Component({
       var key=this.sourceKey();
       var items = append ? this.data.items.slice() : [];
       this.setData({ loading: true, failed: false });
-      getApp().waitForLogin().then(function(){return history.getHistory(self.data.source, items.length);}).then(function (res) {
+      getApp().waitForLogin().then(function(){return history.getHistory(self.data.source, items.length, append ? self._cursor : null, append ? self.data.count : null);}).then(function (res) {
         if (!self._ready || version !== self._version) return;
         if (!res.success) throw new Error('LOAD_FAILED');
         var seen = {};
         var combined = items.concat(res.data.items).filter(function (item) { if (seen[item._id]) return false; seen[item._id] = true; return true; });
         self._refreshedAt=Date.now();self._loadedKey=key;
+        self._cursor=res.data.nextCursor;
         self.setData({ loading: false, checked:true, count: res.data.count, items: combined, previewItems: combined.slice(0, 3), hasMore: res.data.hasMore });
       }).catch(function () {
         if (self._ready && version === self._version) self.setData({ loading: false, failed: true });

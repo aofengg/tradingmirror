@@ -1,278 +1,287 @@
+var reviewService = require('../../services/review-service');
 var tradeService = require('../../services/trade-service');
-var toast = require('../../utils/toast');
 var userService = require('../../services/user-service');
 var share = require('../../utils/share');
-var constants = require('../../config/constants');
+var toast = require('../../utils/toast');
+var presentation = require('../../utils/review-presentation');
+
+function shanghaiDay() {
+  return new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+}
 
 Page({
   data: {
-    loading: true,
-    hasLoaded: false,
-    loadError: false,
-    periodType: 'week',
-    periodLabel: '',
-    summary: null,
-    trendPointsJson: '[]',
+    range: 'all',
+    rangeChoices: [{key:'all',label:'全部'}, {key:'week',label:'本周'}, {key:'month',label:'本月'}],
+    behaviorStatus: 'executed',
+    behavior: null,
+    behaviorLoading: true,
+    behaviorError: false,
+    reasonRows: [],
+    observation: null,
+    reasonCount: 0,
+    reasonsExpanded: false,
+    relationOpen: false,
+    relationTitle: '',
+    relationFeeling: '',
+    relationFeelingLabel: '全部感受',
+    relationRangeLabel: '',
+    relationItems: [],
+    relationTotal: 0,
+    relationMore: false,
+    relationLoading: false,
+    relationError: false,
     selectedFocus: '',
-    focusSaving: false,
-    trendExpanded: false,
-    showTrendGuide: false,
-    currentPeriodId: '',
-    selectedPeriodId: '',
-    viewingHistory: false,
-    detailOpen: false,
-    detailLoading: false,
-    detailError: false,
-    detailTitle: '',
-    detailItems: [],
-    analysisExpanded: false, focusExpanded: false, selectedFocusLabel: ''
+    selectedFocusLabel: '',
+    focusSaving: false
   },
 
   onLoad: function () {
     share.enable();
-    this._reviewCache = {};
-    this._reviewCacheRevisions = {};
-    this._loadVersions={};this._cacheDay={};
+    this._behaviorCache = {};
+    this._behaviorVersion = 0;
+    this._relationVersion = 0;
+    this._focusVersion = 0;
   },
 
   onShow: function () {
-    if (typeof this.getTabBar === 'function') {
-      var tabBar = this.getTabBar();
-      if (tabBar) tabBar.setData({ selected: 2, hidden: this.data.detailOpen });
-    }
-    var revision = getApp().getPageRevision('review');
-    if(getApp().globalData._reviewInitialSection==='focus'){getApp().globalData._reviewInitialSection='';this._scrollToFocus=true;this.setData({periodType:'week',selectedPeriodId:'',focusExpanded:true});}
-    if (this._reviewCache[this.data.periodType] && this._reviewCacheRevisions[this.data.periodType] === revision && this._cacheDay[this.data.periodType]===new Date().toDateString()) {
-      this._applyResult(this._reviewCache[this.data.periodType]);
-      return;
-    }
-    this._loadReview(this.data.periodType);
+    this._setTabbarHidden(this.data.relationOpen);
+    var tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null;
+    if (tabBar) tabBar.setData({selected:2});
+    this._loadBehavior(false);
+    this._loadFocus();
   },
 
-  onPullDownRefresh: function () {
-    this._loadReview(this.data.periodType, true);
-  },
+  onPullDownRefresh: function () { this._loadBehavior(true); },
 
   onUnload: function () {
+    this._destroyed = true;
+    this._behaviorVersion++;
+    this._relationVersion++;
+    this._focusVersion++;
     this._setTabbarHidden(false);
   },
 
-  switchPeriod: function (event) {
-    var type = event.currentTarget.dataset.period === 'month' ? 'month' : 'week';
-    if (type === this.data.periodType) return;
-    this.closeDetail();
-    this.setData({ periodType: type, selectedPeriodId: '', loadError: false, trendExpanded: false, detailOpen: false, analysisExpanded:false, summary:null });
-    if (this._reviewCache[type] && this._reviewCacheRevisions[type] === getApp().getPageRevision('review') && this._cacheDay[type]===new Date().toDateString()) {
-      this._applyResult(this._reviewCache[type]);
-      return;
-    }
-    this._loadReview(type);
+  _behaviorOptions: function () {
+    return {range:this.data.range, status:this.data.behaviorStatus, basis:'latest'};
   },
 
-  _loadReview: function (periodType, force) {
+  _loadBehavior: function (force) {
     var self = this;
+    if (force) reviewService.clearCache();
+    var options = this._behaviorOptions();
     var revision = getApp().getPageRevision('review');
-    if (!force && self._reviewCache[periodType] && self._reviewCacheRevisions[periodType] === revision && self._cacheDay[periodType]===new Date().toDateString()) {
-      self._applyResult(self._reviewCache[periodType]);
+    var key = JSON.stringify(options);
+    if(!force && this._behaviorRequest && this._behaviorRequest.key===key && this._behaviorRequest.revision===revision)return this._behaviorRequest.promise;
+    var version = ++this._behaviorVersion;
+    var cached = this._behaviorCache[key];
+    if (!force && cached && cached.revision === revision && cached.day === shanghaiDay() && Date.now() - cached.at < 60000) {
+      if(this._appliedBehavior !== cached.value || !this.data.behavior || this.data.behaviorLoading || this.data.behaviorError)this._applyBehavior(cached.value);
+      wx.stopPullDownRefresh();
       return;
     }
-    self.setData({ loading: true, loadError: false });
-    var version=(self._loadVersions[periodType]||0)+1;self._loadVersions[periodType]=version;
-    getApp().waitForLogin().then(function () {
-      return tradeService.getPeriodReview(periodType);
+    this.setData({behaviorLoading:true, behaviorError:false});
+    var promise = getApp().waitForLogin().then(function () {
+      return reviewService.read(options);
     }).then(function (res) {
-      if(self._loadVersions[periodType]!==version)return;
+      if (self._destroyed || version !== self._behaviorVersion) return;
       if (!res.success) throw new Error(res.error || 'LOAD_FAILED');
-      self._reviewCache[periodType] = res.data;
-      self._reviewCacheRevisions[periodType] = revision;
-      self._cacheDay[periodType]=new Date().toDateString();
-      if (self.data.periodType === periodType) { self._applyResult(res.data);if(self.data.detailOpen)self.retryDetail(); }
-    }).catch(function (error) {
-      console.error('复盘加载失败', error);
-      if (self._loadVersions[periodType]===version && self.data.periodType === periodType) self.setData({ loading: false, loadError: true });
+      self._behaviorCache[key] = {value:res.data, revision:revision, day:shanghaiDay(), at:Date.now()};
+      self._applyBehavior(res.data);
+      if (self.data.relationOpen) self._loadRelation(false, Math.max(15, self.data.relationItems.length));
+    }).catch(function () {
+      if (!self._destroyed && version === self._behaviorVersion) self.setData({behaviorLoading:false, behaviorError:true});
     }).then(function () {
-      wx.stopPullDownRefresh();
+      if(self._behaviorRequest && self._behaviorRequest.version===version)self._behaviorRequest=null;
+      if (!self._destroyed && version === self._behaviorVersion) wx.stopPullDownRefresh();
     });
+    this._behaviorRequest={key:key,revision:revision,version:version,promise:promise};
+    return promise;
   },
 
-  _applyResult: function (data) {
-    this._periodReviewData = data;
-    var activePoints = (data.trend || []).filter(function (item) { return item.value !== null && typeof item.value !== 'undefined'; });
-    var latestPoint = activePoints.length ? activePoints[activePoints.length - 1] : null;
-    this._trendMeta = {
-      trendReady: activePoints.length >= 2,
-      trendActiveCount: activePoints.length,
-      trendCurrentValue: latestPoint ? latestPoint.value : null,
-      trendProgress: Math.min(100, activePoints.length * 50),
-      trendSmallSample: activePoints.slice(-2).some(function(point){return Number(point.eventCount||0)<5;})
-    };
-    this.setData({
-      loading: false,
-      hasLoaded: true,
-      loadError: false,
-      trendPointsJson: JSON.stringify(data.trend || []),
-      currentPeriodId: data.periodId || '',
-      selectedFocus: data.currentFocus && data.currentFocus.key ? data.currentFocus.key : '',
-      showTrendGuide: activePoints.length >= 2 && userService.hasGuideStep('welcome') && !userService.hasGuideStep('trend_generated')
-    });
-    this._applyPeriod(this.data.selectedPeriodId || data.periodId);
+  _applyBehavior: function (value) {
+    this._appliedBehavior=value;
+    this.setData({behavior:value, behaviorLoading:false, behaviorError:false});
+    this._showReasons();
   },
 
-  _applyPeriod: function (periodId) {
-    var data = this._periodReviewData;
-    if (!data) return;
-    var selected = (data.periodSummaries || []).filter(function (item) { return item.periodId === periodId; })[0];
-    if (!selected) selected = data;
-    var viewingHistory = selected.periodId !== data.periodId;
-    var self=this;
-    this.setData({
-      periodLabel: selected.periodLabel || data.periodLabel || '',
-      selectedPeriodId: selected.periodId || data.periodId || '',
-      viewingHistory: viewingHistory,
-      selectedFocusLabel: ((selected.focuses||[]).filter(function(item){return item.key===this.data.selectedFocus;},this)[0]||{}).label || (data.currentFocus&&data.currentFocus.label) || '',
-      summary: Object.assign({}, selected, this._trendMeta || {}, {
-        disciplineScore: selected.eventCount ? selected.disciplineScore : 0,
-        reviewRate: selected.reviewRate || 0,
-        pattern: viewingHistory ? (selected.pattern || '').replace(/本周/g, '这周').replace(/本月/g, '这个月') : selected.pattern,
-        trendInsight: data.trendInsight,
-        changeClueReady: !viewingHistory && data.changeClueReady,
-        changeClue: !viewingHistory ? data.changeClue : ''
-      })
-    },function(){if(self._scrollToFocus){self._scrollToFocus=false;wx.pageScrollTo({selector:'#focusSection',duration:0});}});
+  _showReasons: function () {
+    var result = presentation.build((this.data.behavior && this.data.behavior.reasons) || []);
+    var rows = result.rows;
+    this.setData({reasonCount:rows.length, reasonRows:this.data.reasonsExpanded ? rows : rows.slice(0,4), observation:result.observation});
   },
 
-  toggleAnalysis: function () { this.setData({analysisExpanded:!this.data.analysisExpanded}); },
-  toggleFocus: function () { this.setData({focusExpanded:!this.data.focusExpanded}); },
-
-  toggleTrend: function () {
-    if (!this.data.summary || !this.data.summary.trendReady) return;
-    if (this.data.showTrendGuide) userService.markGuideStep('trend_generated');
-    this.setData({ trendExpanded: !this.data.trendExpanded, showTrendGuide: false });
+  toggleReasonRows: function () {
+    this.setData({reasonsExpanded:!this.data.reasonsExpanded});
+    this._showReasons();
   },
 
-  dismissTrendGuide: function () {
-    this.setData({ showTrendGuide: false });
-    userService.markGuideStep('trend_generated');
+  chooseRange: function (event) {
+    var range = event.currentTarget.dataset.key;
+    if (['all','week','month'].indexOf(range) === -1 || range === this.data.range) return;
+    this.closeRelation();
+    this.setData({range:range, behavior:null, reasonRows:[], reasonsExpanded:false});
+    this._loadBehavior(false);
   },
 
-  selectTrendPeriod: function (event) {
-    var periodId = event.detail && event.detail.periodId;
-    if (!periodId || periodId === this.data.selectedPeriodId) return;
-    this._applyPeriod(periodId);
-  },
-
-  viewSelectedReview: function () {
-    wx.pageScrollTo({ scrollTop: 0, duration: 250 });
-  },
-
-  returnToCurrentPeriod: function () {
-    this._applyPeriod(this.data.currentPeriodId);
-  },
-
-  openMetricDetail: function (event) {
-    var metric = event.currentTarget.dataset.metric;
-    var fields={planned:'plannedCount',impulsive:'impulsiveCount',reviewed:'reviewedCount',regret:'regretCount'};
-    if(!this.data.summary || !Number(this.data.summary[fields[metric]]))return;
-    var titles = {
-      planned: '按计划行动',
-      impulsive: '临时决定',
-      reviewed: '完成回看',
-      regret: '当前懊悔'
-    };
-    if (!titles[metric]) return;
-    this._loadDetail(metric, '', titles[metric]);
-  },
-
-  openReasonDetail: function (event) {
-    var key = event.currentTarget.dataset.key;
-    var label = event.currentTarget.dataset.label;
-    if (!key) return;
-    this._loadDetail('reason', key, '因为「' + label + '」');
-  },
-
-  _loadDetail: function (metric, reasonKey, title) {
+  chooseStatus: function () {
     var self = this;
-    var requestToken = Date.now() + ':' + Math.random();
-    self._detailRequestToken = requestToken;
-    self._detailRequest = { metric: metric, reasonKey: reasonKey, title: title };
-    self._setTabbarHidden(true);
-    self.setData({
-      detailOpen: true,
-      detailLoading: true,
-      detailError: false,
-      detailTitle: title,
-      detailItems: []
+    wx.showActionSheet({
+      itemList:['已执行操作', '未执行决定'],
+      success:function (result) {
+        if (self._destroyed || (result.tapIndex !== 0 && result.tapIndex !== 1)) return;
+        var status = result.tapIndex === 1 ? 'cancelled' : 'executed';
+        if (status === self.data.behaviorStatus) return;
+        self.closeRelation();
+        self.setData({behaviorStatus:status, behavior:null, reasonRows:[], reasonsExpanded:false});
+        self._loadBehavior(false);
+      }
     });
-    tradeService.getPeriodDetail(self.data.periodType, self.data.selectedPeriodId, metric, reasonKey).then(function (res) {
+  },
+
+  retryBehavior: function () { this._loadBehavior(true); },
+
+  openRelation: function (event) {
+    var data = event.currentTarget.dataset;
+    if (!this.data.behavior || Number(data.count) === 0) return;
+    this._relationFailedAppend = false;
+    this._relationRequest = {reason_key:data.reason || ''};
+    var feeling = data.feeling || '';
+    this.setData({
+      relationOpen:true,
+      relationTitle:data.label || '对应的经历',
+      relationRangeLabel:this.data.behavior.rangeLabel + ' · ' + (this.data.behaviorStatus === 'cancelled' ? '未执行决定' : '已执行操作'),
+      relationFeeling:feeling,
+      relationFeelingLabel:this._feelingLabel(feeling),
+      relationItems:[], relationTotal:0, relationMore:false
+    });
+    this._setTabbarHidden(true);
+    this._loadRelation(false);
+  },
+
+  _feelingLabel: function (key) {
+    return ({satisfied:'满意', acceptable:'可接受', regret:'懊悔', unreviewed:'未回看', unknown:'其他感受'})[key] || '全部感受';
+  },
+
+  chooseRelationFeeling: function () {
+    var self = this;
+    var keys = ['', 'satisfied', 'acceptable', 'regret', 'unreviewed', 'unknown'];
+    wx.showActionSheet({
+      itemList:keys.map(function (key) { return self._feelingLabel(key); }),
+      success:function (result) {
+        if (self._destroyed || !self.data.relationOpen || !Number.isInteger(result.tapIndex) || !keys[result.tapIndex] && result.tapIndex !== 0) return;
+        var key = keys[result.tapIndex];
+        if (key === self.data.relationFeeling) return;
+        self.setData({relationFeeling:key, relationFeelingLabel:self._feelingLabel(key), relationItems:[]});
+        self._loadRelation(false);
+      }
+    });
+  },
+
+  _loadRelation: function (append, restoreCount) {
+    if (append && (!this.data.relationMore || this.data.relationLoading)) return;
+    var self = this;
+    var version = ++this._relationVersion;
+    var options = Object.assign({}, this._behaviorOptions(), this._relationRequest, {
+      mode:'detail', feeling:this.data.relationFeeling, cursor:append ? this._relationCursor : null
+    });
+    this.setData({relationLoading:true, relationError:false});
+    var restored = [];
+    function readNext() {
+      return reviewService.read(options).then(function (res) {
+        if (self._destroyed || version !== self._relationVersion) return res;
+        if (!res.success) throw new Error(res.error || 'LOAD_FAILED');
+        restored = restored.concat(res.data.items);
+        if (!append && restoreCount && restored.length < restoreCount && res.data.hasMore) {
+          options.cursor = res.data.nextCursor;
+          return readNext();
+        }
+        return {success:true, data:Object.assign({}, res.data, {items:restored})};
+      });
+    }
+    getApp().waitForLogin().then(readNext).then(function (res) {
+      if (self._destroyed || version !== self._relationVersion || !self.data.relationOpen) return;
       if (!res.success) throw new Error(res.error || 'LOAD_FAILED');
-      if (!self.data.detailOpen || self._detailRequestToken !== requestToken) return;
-      self.setData({ detailLoading: false, detailItems: res.data.items || [] });
-    }).catch(function (error) {
-      console.error('复盘明细加载失败', error);
-      if (self.data.detailOpen && self._detailRequestToken === requestToken) self.setData({ detailLoading: false, detailError: true });
+      self._relationCursor = res.data.nextCursor;
+      var patch={relationLoading:false,relationTotal:res.data.total,relationMore:res.data.hasMore};
+      var evidence=presentation.evidence(res.data.items);
+      if(append){var start=self.data.relationItems.length;evidence.forEach(function(item,index){patch['relationItems['+(start+index)+']']=item;});}
+      else patch.relationItems=evidence;
+      self.setData(patch);
+    }).catch(function () {
+      if (!self._destroyed && version === self._relationVersion && self.data.relationOpen) {
+        self._relationFailedAppend = !!append;
+        self.setData({relationLoading:false, relationError:true});
+      }
     });
   },
 
-  retryDetail: function () {
-    var request = this._detailRequest;
-    if (request) this._loadDetail(request.metric, request.reasonKey, request.title);
-  },
-
-  closeDetail: function () {
-    this._detailRequestToken = '';
-    this.setData({ detailOpen: false });
+  loadMoreRelations: function () { this._loadRelation(true); },
+  retryRelations: function () { this._loadRelation(!!this._relationFailedAppend, Math.max(15,this.data.relationItems.length)); },
+  closeRelation: function () {
+    this._relationVersion++;
+    this.setData({relationOpen:false});
     this._setTabbarHidden(false);
   },
-
   openDetailRecord: function (event) {
     var id = event.currentTarget.dataset.id;
-    if (!id) return;
-    wx.navigateTo({ url: constants.ROUTES.REFLECTION + '?id=' + encodeURIComponent(id) });
+    if (!id || this._navigating) return;
+    var self=this;this._navigating=true;
+    wx.navigateTo({url:'/pages/reflection/index?id=' + encodeURIComponent(id) + '&mode=detail',complete:function(){self._navigating=false;}});
+  },
+  createRecord: function () { wx.navigateTo({url:'/pages/record/index?stage=after'}); },
+
+  // Keep the existing weekly reminder as a single optional footer. No second editor or comparison.
+  _loadFocus: function () {
+    var self = this;
+    var version = ++this._focusVersion;
+    getApp().waitForLogin().then(function () { return userService.getConfig(); }).then(function (res) {
+      if (self._destroyed || version !== self._focusVersion || !res.success) return;
+      var focus = res.data.current_focus || {};
+      self.setData({selectedFocus:focus.key || '', selectedFocusLabel:focus.label || ''});
+      if (getApp().globalData._reviewInitialSection === 'focus') {
+        getApp().globalData._reviewInitialSection = '';
+        self.openFocus();
+      }
+    }).catch(function () {});
   },
 
-  _setTabbarHidden: function (hidden) {
-    if (typeof this.getTabBar !== 'function') return;
-    var tabBar = this.getTabBar();
-    if (tabBar) tabBar.setData({ hidden: hidden });
+  openFocus: function () {
+    if (this.data.focusSaving) return;
+    var self = this;
+    var labels = tradeService.labels.focuses;
+    var keys = Object.keys(labels);
+    wx.showActionSheet({
+      itemList:keys.map(function (key) { return '少一次“' + labels[key] + '”'; }),
+      success:function (result) {
+        if (!self._destroyed && keys[result.tapIndex]) self.chooseFocus({currentTarget:{dataset:{key:keys[result.tapIndex]}}});
+      }
+    });
   },
-
-  stopPropagation: function () {},
-
-  preventTouchMove: function () {},
 
   chooseFocus: function (event) {
     var self = this;
     var key = event.currentTarget.dataset.key;
-    if (self.data.focusSaving) return;
-    if (key === self.data.selectedFocus) {self.setData({focusExpanded:false});return;}
-    self.setData({ focusSaving: true });
+    if (self.data.focusSaving || key === self.data.selectedFocus || !tradeService.labels.focuses[key]) return;
+    self.setData({focusSaving:true});
     tradeService.saveWeeklyFocus(key).then(function (res) {
-      if (!res.success) {
-        console.error('提醒保存失败', res.error);
-        self.setData({ focusSaving: false });
-        toast.showError('提醒保存失败');
-        return;
-      }
-      self.setData({ selectedFocus: key, focusSaving: false, focusExpanded:false, selectedFocusLabel:((self.data.summary.focuses||[]).filter(function(item){return item.key===key;})[0]||{}).label||'' });
-      if (self._reviewCache.week) self._reviewCache.week.currentFocus = res.data;
+      if (self._destroyed) return;
+      if (!res.success) throw new Error('SAVE_FAILED');
+      self._focusVersion++;
+      self.setData({selectedFocus:key, selectedFocusLabel:res.data.label || tradeService.labels.focuses[key], focusSaving:false});
       getApp().invalidatePages(['today']);
       toast.showSuccess('已设为本周提醒');
-    }).catch(function (error) {
-      console.error('提醒保存异常', error);
-      self.setData({ focusSaving: false });
-      toast.showError('提醒保存失败');
+    }).catch(function () {
+      if (!self._destroyed) { self.setData({focusSaving:false}); toast.showError('暂时没记下，请重试'); }
     });
   },
 
-  retry: function () {
-    this._loadReview(this.data.periodType, true);
+  _setTabbarHidden: function (hidden) {
+    var tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null;
+    if (tabBar) tabBar.setData({hidden:hidden});
   },
-
-  onShareAppMessage: function () {
-    return share.appMessage('交易留痕｜不拿后来涨跌反推对错', '/pages/review/index');
-  },
-
-  onShareTimeline: function () {
-    return share.timeline('交易留痕｜不拿后来涨跌反推对错');
-  }
+  stopPropagation: function () {},
+  preventTouchMove: function () {},
+  onShareAppMessage: function () { return share.appMessage('交易留痕｜记下当时，过后回看', '/pages/review/index'); },
+  onShareTimeline: function () { return share.timeline('交易留痕｜记下当时，过后回看'); }
 });

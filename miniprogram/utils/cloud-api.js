@@ -1,3 +1,4 @@
+var readCache = require('./read-cache');
 function call(action, payload) {
   return wx.cloud.callFunction({
     name: 'tradeData',
@@ -19,6 +20,7 @@ function call(action, payload) {
         trace_id: (result && result.trace_id) || ''
       };
     }
+    if (!/^(get|list)/.test(action) && action !== 'ensureUserConfig') readCache.clear();
     return result;
   }).catch(function (error) {
     var detail = String((error && (error.errMsg || error.message)) || 'CLOUD_WRITE_FAILED').slice(0, 300);
