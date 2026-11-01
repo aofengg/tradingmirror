@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "按理由查记录",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "state-view": "/components/state-view/index"
+  }
+}

@@ -1,0 +1,18 @@
+<view class="timeline" style="--timeline-scale:{{fontScale}};">
+  <view class="timeline-head"><text class="timeline-title">状态变化</text><view class="timeline-scope" bindtap="toggleScope" role="button" hover-class="control-pressed">范围 {{scopeOpen ? '⌃' : '›'}}</view></view>
+  <view class="timeline-tabs"><view class="timeline-tab {{group === 'buy' ? 'is-active' : ''}}" data-group="buy" bindtap="changeGroup" role="button" aria-label="买入和加仓" aria-pressed="{{group === 'buy'}}">买入／加仓</view><view class="timeline-tab {{group === 'sell' ? 'is-active' : ''}}" data-group="sell" bindtap="changeGroup" role="button" aria-label="减仓和清仓" aria-pressed="{{group === 'sell'}}">减仓／清仓</view></view>
+  <text wx:if="{{scopeOpen && ready}}" class="timeline-explanation">{{scopeText}}</text>
+  <view wx:if="{{loading}}" class="timeline-message">正在打开状态变化…</view>
+  <view wx:if="{{error}}" class="timeline-message timeline-retry" bindtap="retry" role="button">{{error}}</view>
+  <block wx:if="{{ready}}">
+    <view class="timeline-range"><text>{{rangeLabel}}</text><view class="timeline-navs"><view class="timeline-nav {{!canPrevious || loading ? 'is-disabled' : ''}}" bindtap="previous" role="button" aria-label="更早的操作周" aria-disabled="{{!canPrevious || loading}}">‹</view><view class="timeline-nav {{!canNext || loading ? 'is-disabled' : ''}}" bindtap="next" role="button" aria-label="较新的操作周" aria-disabled="{{!canNext || loading}}">›</view></view></view>
+    <view class="timeline-caption"><text>当时 · 操作动因</text><text>色深表示当周占比</text></view>
+    <view class="timeline-chart">
+      <view class="timeline-axis"><view class="timeline-date">操作周</view><view wx:for="{{rows}}" wx:key="key" class="timeline-row-label">{{item.label}}</view><view class="timeline-later">后来</view><view class="timeline-bar-label">感受构成<text>每列100%</text></view><view class="timeline-count">操作数</view></view>
+      <view class="timeline-columns"><view wx:for="{{weeks}}" wx:key="key" class="timeline-week {{item.active ? 'is-selected' : ''}}" data-week="{{item.key}}" bindtap="selectWeek" role="button" aria-label="{{item.aria}}" aria-pressed="{{item.active}}" hover-class="control-pressed"><view class="timeline-date">{{item.label}}</view><view wx:for="{{item.cells}}" wx:for-item="cell" wx:key="key" class="timeline-cell" style="background:{{cell.color}};">{{cell.count || '·'}}</view><view class="timeline-later"></view><view class="timeline-bar"><view wx:if="{{item.total}}" class="timeline-stack"><view wx:for="{{item.segments}}" wx:for-item="segment" wx:key="key" class="timeline-segment {{segment.key === 'unreviewed' ? 'timeline-unreviewed' : ''}}" style="height:{{segment.percent}}%;background-color:{{segment.color}};"></view></view><text wx:else class="timeline-empty-mark">—</text></view><view class="timeline-count">{{item.total ? item.total + '次' : '无操作'}}</view></view></view>
+    </view>
+    <view class="timeline-legend"><block wx:for="{{legend}}" wx:key="key"><view wx:if="{{item.key !== 'unknown' || hasUnknown}}"><view class="timeline-dot timeline-dot--{{item.key}}"></view><text>{{item.label}}</text></view></block></view>
+    <text class="timeline-footnote">· 当周无此理由 · 感受归回原操作周</text>
+    <view class="timeline-selection"><text class="timeline-selected-date">{{selected.periodFull}} · {{selected.total}}次操作</text><text class="timeline-summary">{{selected.summary}}</text><text wx:if="{{selected.total}}" class="timeline-selected-counts">{{selectedCounts}}</text><view wx:if="{{selected.total}}" class="timeline-open" bindtap="openRecords" role="button" hover-class="control-pressed">查看这{{selected.total}}次经历 ›</view></view>
+  </block>
+</view>

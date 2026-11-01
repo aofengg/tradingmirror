@@ -1,0 +1,27 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+let definition,requests=[],saves=[],details=[],generationCalls=0,focuses=[];
+const app={globalData:{openid:'owner'},waitForLogin:()=>Promise.resolve(),invalidatePages(){}};
+let bar={};const tick=()=>new Promise(setImmediate);
+const service={read:force=>new Promise(resolve=>requests.push({force,resolve})),generate:()=>{generationCalls++;return Promise.resolve({success:true,data:{generated:true}});},detail:id=>new Promise(resolve=>details.push({id,resolve})),saveReminder:p=>new Promise(resolve=>saves.push({p,resolve})),undoReminder:()=>Promise.resolve({success:true,data:{focus:{key:'old',label:'旧提醒'},version:'oldv'}})};
+vm.runInNewContext(fs.readFileSync('miniprogram/pages/review/index.js','utf8'),{Page:p=>definition=p,getApp:()=>app,wx:{stopPullDownRefresh(){},navigateTo(){}},setTimeout,clearTimeout,console,require:n=>n.includes('ai-review-service')?service:n.includes('user-service')?{applyCurrentFocus:v=>focuses.push(v)}:n.includes('request-id')?{create:()=> 'request-1'}:n.includes('share')?{enable(){}}:{showError(){}}});
+const page={...definition,data:JSON.parse(JSON.stringify(definition.data)),getTabBar:()=>({setData:p=>Object.assign(bar,p)}),setData(p){Object.assign(this.data,p);}};
+const f={id:'f',kind:'keep',title:'按预设条件处理',summary:'已有具体依据',reminder:'检查自己的预设条件。',source_count:2};
+const value={scope:{total:4},has_snapshot:true,has_new_data:false,generated_label:'2026-10-30 22:00',primary:[f],findings:[f],hidden:[],reminder:{key:'old',label:'旧提醒'},reminder_version:'oldv'};
+const response=v=>({success:true,data:v});const ev=id=>({currentTarget:{dataset:{id}}});
+let barDefinition,currentBarPage={route:'pages/review/index',data:{sheet:'evidence'}};
+vm.runInNewContext(fs.readFileSync('miniprogram/custom-tab-bar/index.js','utf8'),{Component:p=>barDefinition=p,getCurrentPages:()=>[currentBarPage]});
+const recreatedBar={...barDefinition.methods,data:{hidden:false},setData(p){Object.assign(this.data,p);}};
+barDefinition.lifetimes.ready.call(recreatedBar);assert.equal(recreatedBar.data.hidden,true,'recreated tab bar preserves an open review sheet');
+currentBarPage.data.sheet='';barDefinition.pageLifetimes.show.call(recreatedBar);assert.equal(recreatedBar.data.hidden,false,'closing a sheet restores normal navigation');
+(async()=>{
+ page.onLoad();page.onShow();await tick();requests.shift().resolve(response(value));await tick();assert.equal(page.data.primary.length,1);assert.equal(generationCalls,0,'opening cached review never calls model');
+ const pending=page._loadReview(false,false);await tick();page._loadReview(true,false);requests.shift().resolve(response({...value,reminder:{label:'迟到旧提醒'}}));await tick();assert.equal(page.data.reminderCurrent,'旧提醒','a requested refresh prevents old reads from overwriting current state');assert.equal(requests.length,1);requests.shift().resolve(response(value));await pending;
+ page.openEvidence(ev('f'));assert.equal(bar.hidden,true);page.closeSheet();details.shift().resolve(response({finding:f,items:[{id:'stale'}]}));await tick();assert.equal(page.data.evidence.length,0,'closed evidence sheet ignores late results');
+ page.openReminder(ev('f'));page.inputReminder({detail:{value:'保留我的编辑。'}});const save=page.saveReminder();page.saveReminder();assert.equal(saves.length,1,'rapid taps cannot duplicate reminder writes');page.closeSheet();assert.equal(page.data.sheet,'reminder','saving cannot be mistaken for cancellation');saves.shift().resolve({success:false,error:'OFFLINE'});await save;assert.equal(page.data.reminderText,'保留我的编辑。');assert.equal(page.data.reminderCurrent,'旧提醒');assert(page.data.reminderError);
+ const retry=page.saveReminder();saves.shift().resolve(response({focus:{kind:'review',text:'保留我的编辑。'},version:'newv',undo_id:'undo-1'}));await tick();assert.equal(page.data.sheet,'');assert.equal(page.data.undo.id,'undo-1');requests.shift().resolve(response({...value,reminder:{kind:'review',text:'保留我的编辑。'},reminder_version:'newv'}));await retry;assert.equal(page.data.reminderCurrent,'保留我的编辑。');
+ const undo=page.undoChange();await tick();requests.shift().resolve(response(value));await undo;assert.equal(page.data.undo,null);assert.equal(page.data.reminderCurrent,'旧提醒');
+ page.data.undo={kind:'reminder',id:'older'};service.undoReminder=()=>Promise.resolve({success:false,error:'REMINDER_CHANGED'});const conflict=page.undoChange();await tick();requests.shift().resolve(response(value));await conflict;assert.equal(page.data.undo,null,'a superseded undo is cleared after refreshing the newer reminder, rather than offering endless retries');
+ page._loadReview(true,false);await tick();const stale=requests.shift();app.globalData.openid='other';stale.resolve(response({...value,primary:[{id:'private'}]}));await tick();assert.notEqual(page.data.primary[0].id,'private','late reads cannot cross accounts');
+ app.globalData.openid='owner';page._loadReview(true,false);await tick();const after=requests.shift();page.onUnload();after.resolve(response({...value,primary:[{id:'after-unload'}]}));await tick();assert.notEqual(page.data.primary[0].id,'after-unload');assert.equal(bar.hidden,false);
+ console.log('AI controller: cached opening, forced refresh race, detached evidence, duplicate save, failure draft, replace/undo and account/unload races passed');
+})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,0 +1,26 @@
+const assert=require('node:assert/strict');
+const m=require('../cloudfunctions/reviewAI/analysis');
+const now=Date.now();
+const events=[{_id:'e1',symbol:'ONE',action:'add',execution_status:'executed',executed_at:now-10000,optional_note:'按原计划分批加仓'},{_id:'e2',symbol:'TWO',action:'buy',execution_status:'executed',executed_at:now-20000,optional_note:'这里是买入记录'},{_id:'pending',symbol:'WAIT',stage:'before',recorded_at:now-1000,optional_note:'尚未确认是否执行'},{_id:'gone',is_deleted:true,execution_status:'executed',optional_note:'不能被引用'}];
+const reflections=[{_id:'r1',trade_event_id:'e1',reviewed_at:now-9000,sequence_no:1,feeling:'regret',optional_note:'加仓没有拉开区间'},{_id:'r2',trade_event_id:'e1',reviewed_at:now-8000,sequence_no:2,feeling:'satisfied',optional_note:'后来能够接受'},{_id:'r3',trade_event_id:'e2',reviewed_at:now-7000,feeling:'acceptable',optional_note:'买点还行，加仓太急'}];
+const source=m.source(events,reflections,now);
+const finding={kind:'adjust',topic:'加仓节奏',scope:'pattern',title:'加仓前核对间隔',summary:'不同回看都提到加仓过急。',reminder:'加仓前，检查预设间隔。',actions:['add'],limitation:'同时保留后来能够接受的反馈。',evidence:[{event_id:'e1',reflection_id:'r1',quote:'加仓没有拉开区间',role:'support'},{event_id:'e2',reflection_id:'r3',quote:'买点还行，加仓太急',role:'support'}]};
+function validate(f){return m.validate({findings:[f]},source);}
+assert.equal(source.scope.total,3);assert.equal(source.scope.pending,1);assert.equal(source.scope.reviewed,2);assert.equal(source.scope.reflections,3);
+assert.equal(source.byId.get('e1').history.length,2,'earlier regret remains alongside later satisfaction');
+const valid=validate(finding);assert.equal(valid[0].source_count,2);
+const details=m.detail(valid[0],source);assert.equal(details.find(e=>e.id==='e2').action,'buy','a later note about adding must never fabricate an add execution');assert.equal(details.find(e=>e.id==='e1').history.length,2);
+assert.throws(()=>validate({...finding,evidence:[{...finding.evidence[0],quote:'不存在的原话'}]}),/MODEL_EVIDENCE_INVALID/);
+assert.throws(()=>validate({...finding,evidence:[{...finding.evidence[0],event_id:'e2'}]}),/MODEL_EVIDENCE_INVALID/,'reflection must belong to the cited decision');
+assert.throws(()=>validate({...finding,evidence:[{...finding.evidence[0],event_id:'pending',reflection_id:null,quote:'尚未确认是否执行'}]}),/MODEL_EVIDENCE_INVALID/);
+assert.throws(()=>validate({...finding,evidence:[finding.evidence[0],{...finding.evidence[0],reflection_id:'r2',quote:'后来能够接受'}]}),/MODEL_EVIDENCE_INVALID/,'multiple reviews of one decision are not independent samples');
+assert.throws(()=>validate({...finding,evidence:[finding.evidence[0],{...finding.evidence[1],role:'context'}]}),/MODEL_EVIDENCE_INVALID/,'a counterexample cannot inflate supporting sample size');
+assert.throws(()=>validate({...finding,reminder:'下次跌5%就加仓'}),/MODEL_EVIDENCE_INVALID/,'model must not invent numeric trading rules');
+assert.throws(()=>validate({...finding,summary:'长'.repeat(66)}),/MODEL_EVIDENCE_INVALID/,'oversized generated summaries are rejected instead of silently truncated');
+const snap={findings:valid,source_events:source.input};assert.equal(m.validFindings(snap,source).length,1);
+assert.equal(m.validFindings(snap,m.source(events.filter(e=>e._id!=='e2'),reflections,now)).length,0,'deleting a cited decision immediately invalidates its conclusion');
+assert.equal(m.validFindings(snap,m.source(events,reflections.map(r=>r._id==='r1'?{...r,optional_note:'更正后的备注'}:r),now)).length,0,'changing quoted content cannot leave stale analysis visible');
+assert.notEqual(source.version,m.source(events,[...reflections,{_id:'r4',trade_event_id:'e2',reviewed_at:now-100,feeling:'satisfied',optional_note:'新反馈'}],now).version);
+assert.equal(m.validate({findings:[]},source).length,0,'insufficient evidence does not force positive or negative conclusions');
+assert(m.prompt(source)[0].content.includes('不可信')||m.prompt(source)[0].content.includes('待分析数据'));
+console.log('AI analysis: exact provenance, execution semantics, full history, independent support, counterexamples, source invalidation and non-prescriptive reminders passed');
