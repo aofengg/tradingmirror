@@ -5,7 +5,7 @@ let revision=0,modals=[],nav=[];
 const bar={setData(p){Object.assign(this,p);}};
 const app={globalData:{},getPageRevision:()=>revision,waitForLogin:()=>Promise.resolve()};
 const wx={stopPullDownRefresh(){},showActionSheet:o=>modals.push(o),navigateTo:o=>nav.push(o.url)};
-vm.runInNewContext(fs.readFileSync('miniprogram/pages/review/index.js','utf8'),{Page:p=>definition=p,getApp:()=>app,wx,console,require:n=>n.includes('review-presentation')?require('../miniprogram/utils/review-presentation'):n.includes('review-service')?{clearCache(){},read:opts=>new Promise(resolve=>requests.push({opts,resolve}))}:n.includes('user-service')?{getConfig:()=>Promise.resolve({success:true,data:{}})}:n.includes('share')?{enable(){}}:{}});
+vm.runInNewContext(fs.readFileSync('miniprogram/pages/review-history/index.js','utf8'),{Page:p=>definition=p,getApp:()=>app,wx,console,require:n=>n.includes('review-presentation')?require('../miniprogram/utils/review-presentation'):n.includes('review-service')?{clearCache(){},read:opts=>new Promise(resolve=>requests.push({opts,resolve}))}:n.includes('user-service')?{getConfig:()=>Promise.resolve({success:true,data:{}})}:n.includes('share')?{enable(){}}:{}});
 const page=Object.assign({},definition,{data:JSON.parse(JSON.stringify(definition.data)),getTabBar:()=>bar,setData(p,cb){patches.push(p);for(const [key,value] of Object.entries(p)){const m=key.match(/^(\w+)\[(\d+)\]$/);if(m)this.data[m[1]][Number(m[2])]=value;else this.data[key]=value;}if(cb)cb();}});
 const summary=n=>({success:true,data:{total:n,reviewed:n,unreviewed:0,rangeLabel:'全部数据',reasons:[]}});
 const detail=(id,hasMore=false)=>({success:true,data:{total:30,items:[{_id:id}],hasMore,nextCursor:{at:1,id}}});

@@ -1,62 +1,54 @@
-<view class="page review-page"><view class="page-content">
-  <text class="page-title">回头看看</text>
-  <text class="page-subtitle">当时的理由，后来的感受。</text>
-  <view class="review-range" aria-label="复盘时间范围">
-    <view wx:for="{{rangeChoices}}" wx:key="key" class="review-range__item {{range === item.key ? 'review-range__item--active' : ''}}" data-key="{{item.key}}" bindtap="chooseRange" role="button" aria-label="{{item.label}}" hover-class="control-pressed">{{item.label}}</view>
-  </view>
-  <view class="review-context">
-    <view class="review-context__status" bindtap="chooseStatus" role="button" hover-class="control-pressed">{{behaviorStatus === 'executed' ? '已执行操作' : '未执行决定'}} <text>⌄</text></view>
-    <text wx:if="{{behavior && !behaviorLoading}}">{{behavior.total}} 次 · {{behavior.reviewed}} 次已回看</text>
-  </view>
-  <view wx:if="{{behaviorLoading && !behavior}}" class="review-state"><state-view type="loading" title="正在翻开经历" compact /></view>
-  <view wx:elif="{{behaviorError && !behavior}}" class="review-state"><state-view type="error" title="复盘暂时没打开" action-text="重新加载" bind:action="retryBehavior" compact /></view>
-  <block wx:elif="{{behavior}}">
-    <view wx:if="{{behaviorError}}" class="review-inline-state" bindtap="retryBehavior" role="button">更新失败，点此重试</view>
-    <view wx:elif="{{behaviorLoading}}" class="review-inline-state">正在更新…</view>
-    <block wx:if="{{behavior.total}}">
-      <view wx:if="{{observation}}" class="review-observation" data-reason="{{observation.reason}}" data-label="{{observation.label}}" bindtap="openRelation" role="button" hover-class="control-pressed">
-        <text class="review-observation__title">{{observation.title}}</text>
-        <text class="review-observation__text">{{observation.text}}</text>
-        <view class="review-observation__footer">查看这个理由的全部经历 ›</view>
+<view class="page ai-review" style="--review-font-scale:{{fontScale}};"><view class="page-content">
+  <text class="page-title">智能复盘</text>
+  <view wx:if="{{review}}" class="ai-source" bindtap="openSources" role="button" hover-class="control-pressed">{{generatedLabel}}<text wx:if="{{review.has_snapshot}}"> · 全部记录</text><text class="ai-arrow">›</text></view>
+  <view wx:if="{{loading && !review}}" class="ai-state"><state-view type="loading" title="正在翻开记录" compact /></view>
+  <view wx:elif="{{readError && !review}}" class="ai-state"><state-view type="error" title="复盘暂时没打开" action-text="重新加载" bind:action="retryRead" compact /></view>
+  <block wx:elif="{{review}}">
+    <view wx:if="{{readError}}" class="ai-inline" bindtap="retryRead" role="button">更新失败，点此重试</view>
+    <view wx:if="{{generating}}" class="ai-inline"><view class="ai-breath"></view><text>{{review.has_snapshot ? '正在更新复盘…' : '正在整理值得保留与调整的做法…'}}</text></view>
+    <view wx:elif="{{generationError}}" class="ai-inline ai-inline--error"><text>{{generationError}}</text><view class="ai-touch" bindtap="generateReview" role="button">重试 ›</view></view>
+    <view wx:elif="{{review.has_new_data && review.has_snapshot}}" class="ai-inline" bindtap="generateReview" role="button" hover-class="control-pressed">有新记录，可更新复盘 <text>›</text></view>
+    <view wx:if="{{primary.length}}" class="ai-paper">
+      <view wx:for="{{primary}}" wx:key="id" class="ai-finding">
+        <text class="ai-kind {{item.kind === 'adjust' ? 'ai-kind--adjust' : ''}}">{{item.kind === 'keep' ? '值得延续' : '下次留意'}}</text>
+        <text class="ai-title">{{item.title}}</text>
+        <text class="ai-summary">{{item.summary}}</text>
+        <view class="ai-actions"><view class="ai-evidence-link" data-id="{{item.id}}" bindtap="openEvidence" role="button" hover-class="control-pressed">{{item.source_count}}条依据 <text>›</text></view><view class="ai-bookmark" data-id="{{item.id}}" bindtap="openReminder" role="button" hover-class="control-pressed">留作提醒</view></view>
       </view>
-      <view class="review-section-head"><text>当时的理由</text><text>最近的感受</text></view>
-      <view class="review-reasons">
-        <view wx:for="{{reasonRows}}" wx:for-item="reason" wx:key="key" class="review-reason">
-          <view class="review-reason__head" data-reason="{{reason.key}}" data-label="{{reason.label}}" bindtap="openRelation" role="button" hover-class="control-pressed"><text>{{reason.label}}</text><text>{{reason.total}} 次 ›</text></view>
-          <view class="review-reason__bar" data-reason="{{reason.key}}" data-label="{{reason.label}}" bindtap="openRelation" role="button" aria-label="{{reason.label}}的最近感受分布">
-            <view wx:for="{{reason.feelings}}" wx:key="key" class="review-reason__segment review-tone--{{item.key}}" style="width:{{item.width}}%;"></view>
-          </view>
-          <view class="review-reason__feelings">
-            <view wx:for="{{reason.feelings}}" wx:key="key" class="review-feeling" data-reason="{{reason.key}}" data-feeling="{{item.key}}" data-label="{{reason.label}}" data-count="{{item.count}}" bindtap="openRelation" role="button" hover-class="control-pressed"><view class="review-tag review-tone--{{item.key}}"><view class="review-tag__dot"></view><text>{{item.label}}</text><text class="review-tag__count">{{item.count}}</text></view></view>
-          </view>
-          <text wx:if="{{reason.sampleNote}}" class="review-reason__sample">{{reason.sampleNote}}</text>
-        </view>
-      </view>
-      <view wx:if="{{reasonCount > 4}}" class="review-expand" bindtap="toggleReasonRows" role="button" hover-class="control-pressed">{{reasonsExpanded ? '收起' : '看看其余 ' + (reasonCount - 4) + ' 种理由'}} {{reasonsExpanded ? '⌃' : '⌄'}}</view>
-      <view class="review-footnote"><text>每笔决定按最近一次感受计入，点开查看原记录。</text><view wx:if="{{behavior.unreviewed}}" class="review-unreviewed" data-feeling="unreviewed" data-label="还没回看的经历" data-count="{{behavior.unreviewed}}" bindtap="openRelation" role="button" hover-class="control-pressed">还有 {{behavior.unreviewed}} 次没回看 ›</view></view>
-    </block>
-    <view wx:else class="review-state"><state-view type="empty" title="{{range === 'all' ? '经历会慢慢积累' : '这段时间还没有对应记录'}}" description="{{range === 'all' ? '记下当时的理由，过后再来看看。' : '切换到全部，看看更早的经历。'}}" action-text="{{range === 'all' && behaviorStatus === 'executed' ? '记下一次决定' : ''}}" bind:action="createRecord" compact /></view>
-  </block>
-  <view class="review-focus" bindtap="openFocus" role="button" hover-class="control-pressed"><view><text>{{selectedFocusLabel ? '本周提醒' : '给自己留个提醒'}}</text><text wx:if="{{selectedFocusLabel}}">少一次“{{selectedFocusLabel}}”。</text></view><text>{{focusSaving ? '保存中…' : selectedFocusLabel ? '调整 ›' : '可选 ›'}}</text></view>
-</view></view>
-<root-portal><view wx:if="{{relationOpen}}" class="review-overlay ui-portal" catchtap="closeRelation" catchtouchmove="preventTouchMove"><view class="review-sheet" catchtap="stopPropagation">
-  <view class="review-sheet__handle"></view>
-  <view class="review-sheet__head"><view><text class="review-sheet__range">{{relationRangeLabel}}</text><text class="review-sheet__title">{{relationTitle}}</text></view><view class="review-sheet__close" bindtap="closeRelation" role="button" aria-label="关闭"><text>×</text></view></view>
-  <view class="review-sheet__meta"><text>{{relationLoading && !relationItems.length ? '正在整理…' : relationTotal + ' 次决定'}}</text><view class="review-sheet__filter" bindtap="chooseRelationFeeling" role="button" hover-class="control-pressed">{{relationFeelingLabel}} <text>⌄</text></view></view>
-  <scroll-view scroll-y enhanced show-scrollbar="{{false}}" class="review-evidence" bindscrolltolower="loadMoreRelations" lower-threshold="160">
-    <view wx:for="{{relationItems}}" wx:key="_id" class="review-evidence__item" data-id="{{item._id}}" bindtap="openDetailRecord" role="button" hover-class="control-pressed">
-      <view class="review-evidence__head"><view class="review-evidence__identity"><text>{{item.symbol}}</text><text class="action-tag action-tag--{{item.action}} {{item.execution_status === 'cancelled' ? 'action-tag--cancelled' : ''}}">{{item.action_label}}</text></view><view class="review-evidence__feeling review-tone--{{item.latest_feeling}}"><image class="review-evidence__feeling-icon" src="/assets/icons/feeling-{{item.latest_feeling}}.svg" mode="aspectFit" /><text>{{item.latest_feeling_label}}</text></view></view>
-      <text wx:if="{{item.reason_label !== relationTitle}}" class="review-evidence__reason">“{{item.reason_label}}”</text>
-      <view wx:if="{{item.optional_note || item.regretReason || item.reviewNote}}" class="review-evidence__story">
-        <view wx:if="{{item.optional_note}}" class="review-story-row"><text class="review-story-row__label">当时</text><view class="review-story-row__body"><text class="review-story-row__copy">{{item.optional_note}}</text></view></view>
-        <view wx:if="{{item.regretReason || item.reviewNote}}" class="review-story-row"><text class="review-story-row__label">后来</text><view class="review-story-row__body"><text wx:if="{{item.regretReason}}" class="review-story-row__copy">懊悔原因：{{item.regretReason}}</text><text wx:if="{{item.reviewNote}}" class="review-story-row__copy">{{item.reviewNote}}</text></view></view>
-      </view>
-      <view class="review-evidence__footer"><view class="review-evidence__meta"><text>{{item.created_label}}</text><text wx:if="{{item.reflection_count}}">· {{item.reflection_count}} 次回看</text></view><view class="review-evidence__link"><text>查看记录</text><text>›</text></view></view>
     </view>
-    <view wx:if="{{relationLoading}}" class="review-list-state">正在翻开经历…</view>
-    <view wx:elif="{{relationError}}" class="review-list-state review-list-state--action" bindtap="retryRelations" role="button">暂时没打开，点此重试</view>
-    <view wx:elif="{{!relationItems.length}}" class="review-list-state">这里暂时没有对应经历。</view>
-    <view wx:elif="{{relationMore}}" class="review-list-state review-list-state--action" bindtap="loadMoreRelations" role="button">查看更多经历 ›</view>
-    <view wx:else class="review-list-state">以上为全部对应经历</view>
+    <view wx:elif="{{!generating}}" class="ai-state">
+      <state-view wx:if="{{!review.scope.total}}" type="empty" title="经历会慢慢积累" description="记下当时的理由，过后留下真实感受。" action-text="记下一次决定" bind:action="createRecord" compact />
+      <state-view wx:elif="{{insufficient || review.has_snapshot}}" type="empty" title="暂时还不足以归纳" description="已有经历仍可查看，不急着给自己下结论。" compact />
+      <state-view wx:else type="empty" title="从已有经历里，整理一点收获" description="看看什么值得延续，下次可以留意什么。" action-text="整理复盘" bind:action="generateReview" compact />
+    </view>
+    <review-timeline wx:if="{{review.scope.executed}}" id="reviewTimeline" font-scale="{{fontScale}}" source-version="{{review.source_version}}" bind:openrecords="openTimelineRecords" bind:sourcechange="timelineSourceChanged" />
+    <view wx:if="{{undo}}" class="ai-notice"><text>{{undo.text}}</text><view bindtap="undoChange" role="button">撤回</view></view>
+    <view class="ai-current" bindtap="editReminder" role="button" hover-class="control-pressed"><view class="ai-current__head"><text class="ai-current__label">当前提醒</text><text class="ai-current__action">{{reminderCurrent ? '调整' : '可选'}} ›</text></view><text class="ai-current__text">{{reminderCurrent || '还没有留提醒'}}</text></view>
+  </block>
+  <view class="ai-secondary"><view wx:if="{{otherFindings.length || (review && review.hidden.length)}}" bindtap="openOthers" role="button" hover-class="control-pressed">其他发现 ›</view><view bindtap="openHistory" role="button" hover-class="control-pressed">按理由查记录 ›</view></view>
+</view></view>
+<root-portal><view wx:if="{{sheet}}" class="ai-overlay ui-portal" style="--review-font-scale:{{fontScale}};--review-keyboard-height:{{keyboardHeight}}px;bottom:{{keyboardHeight}}px;" catchtap="closeSheet" catchtouchmove="preventTouchMove"><view class="ai-sheet" catchtap="stopPropagation">
+  <view class="ai-sheet__handle"></view>
+  <view class="ai-sheet__head"><text>{{sheet === 'evidence' ? '发现依据' : sheet === 'timeline' ? '本周经历' : sheet === 'others' ? '其他发现' : sheet === 'sources' ? '整理范围' : '留个提醒'}}</text><view class="ai-close" bindtap="closeSheet" role="button" aria-label="关闭"><text>×</text></view></view>
+  <scroll-view wx:if="{{sheet === 'evidence' || sheet === 'timeline'}}" scroll-y enhanced show-scrollbar="{{false}}" class="ai-sheet__scroll">
+    <block wx:if="{{sheet === 'evidence'}}"><text class="ai-kind {{selected.kind === 'adjust' ? 'ai-kind--adjust' : ''}}">{{selected.kind === 'keep' ? '值得延续' : '下次留意'}}</text><text class="ai-title">{{selected.title}}</text><text class="ai-summary">{{selected.summary}}</text></block>
+    <text wx:else class="ai-summary">{{timelineContext.group_label}} · {{timelineContext.period}} · {{timelineContext.total}}次操作</text>
+    <text wx:if="{{selected.limitation}}" class="ai-limit">{{selected.limitation}}</text>
+    <view wx:if="{{evidenceLoading && !evidence.length}}" class="ai-list-state">{{sheet === 'timeline' ? '正在打开本周经历…' : '正在打开依据…'}}</view><view wx:elif="{{evidenceError}}" class="ai-list-state" bindtap="retryEvidence" role="button">{{evidenceError}}<text wx:if="{{sheet === 'evidence'}}"> 点此重试</text></view>
+    <view wx:for="{{evidence}}" wx:for-item="record" wx:key="id" class="ai-record">
+      <view class="ai-record__head"><view><text class="ai-record__symbol">{{record.symbol}}</text><text class="ai-record__action">{{record.action_label}}</text><text wx:if="{{record.status === 'cancelled'}}" class="ai-unexecuted">未执行</text><text wx:if="{{record.evidence_role === 'context'}}" class="ai-unexecuted">参照经历</text></view><text class="ai-record__date">{{record.date}}</text></view>
+      <view wx:if="{{record.note || record.reason}}" class="ai-story"><text class="ai-story__label">当时</text><text class="ai-story__copy">{{record.note || record.reason}}</text></view>
+      <view wx:for="{{record.history}}" wx:for-item="reflection" wx:key="id" class="ai-story"><text class="ai-story__label">后来</text><view class="ai-story__body"><text wx:if="{{reflection.note || reflection.regret}}" class="ai-story__copy">{{reflection.note || reflection.regret}}</text><text wx:if="{{reflection.regret && reflection.note}}" class="ai-story__reason">懊悔原因：{{reflection.regret}}</text><text class="ai-story__meta">{{reflection.date}}回看 · {{reflection.feeling_label}}</text></view></view>
+      <view class="ai-record__footer" data-id="{{record.id}}" bindtap="openRecord" role="button" hover-class="control-pressed">查看原记录 ›</view>
+    </view>
+    <view wx:if="{{sheet === 'timeline' && timelineHasMore && !evidenceError}}" class="ai-list-state" bindtap="loadTimelineMore" role="button">{{evidenceLoading ? '正在打开更多经历…' : '查看更多经历 ›'}}</view>
+    <view wx:if="{{sheet === 'timeline' && !evidenceLoading && !evidenceError && !evidence.length}}" class="ai-list-state">这一周没有该方向的已执行操作。</view>
+    <view wx:if="{{sheet === 'evidence' && !evidenceLoading && !evidenceError}}" class="ai-detail-actions"><view class="ai-bookmark" data-id="{{selected.id}}" bindtap="openReminder" role="button">留作提醒</view><view class="ai-touch" bindtap="dismissFinding" role="button">{{feedbackSaving ? '正在保存…' : '这条不贴合'}}</view></view>
   </scroll-view>
+  <scroll-view wx:elif="{{sheet === 'others'}}" scroll-y enhanced show-scrollbar="{{false}}" class="ai-sheet__scroll">
+    <view wx:for="{{otherFindings}}" wx:key="id" class="ai-other" data-id="{{item.id}}" bindtap="openEvidence" role="button"><view><text class="ai-kind {{item.kind === 'adjust' ? 'ai-kind--adjust' : ''}}">{{item.kind === 'keep' ? '值得延续' : '下次留意'}} · {{item.source_count}}条依据</text><text class="ai-other__title">{{item.title}}</text></view><text>›</text></view>
+    <text wx:if="{{review.hidden.length}}" class="ai-limit">已收起的发现</text><view wx:for="{{review.hidden}}" wx:key="id" class="ai-other"><text class="ai-other__title">{{item.title}}</text><view class="ai-touch" data-id="{{item.id}}" bindtap="restoreFinding" role="button">恢复</view></view>
+  </scroll-view>
+  <scroll-view wx:elif="{{sheet === 'reminder'}}" class="ai-reminder-editor" scroll-y enhanced show-scrollbar="{{false}}"><text class="ai-summary">在相关操作前，给自己一个轻提醒。</text><textarea class="ai-reminder-input" value="{{reminderText}}" maxlength="100" disabled="{{reminderSaving}}" bindinput="inputReminder" bindkeyboardheightchange="keyboardChanged" placeholder="给下一次决定留一句提醒" adjust-position="{{false}}" cursor-spacing="32" /><text class="ai-limit">{{reminderCurrent ? '当前：' + reminderCurrent + '。保存后替换这一条。' : '保存后将成为当前提醒。'}}</text><text wx:if="{{reminderError}}" class="ai-reminder-error">{{reminderError}}</text><button class="primary-button ai-save" loading="{{reminderSaving}}" disabled="{{reminderSaving}}" bindtap="saveReminder">{{reminderCurrent ? '替换当前提醒' : '保存提醒'}}</button><view class="ai-cancel" bindtap="closeSheet" role="button">暂时不改</view></scroll-view>
+  <scroll-view wx:else scroll-y enhanced show-scrollbar="{{false}}" class="ai-sources-scroll"><view class="ai-sources"><text class="ai-summary">{{review.generated_label ? '上次整理于 ' + review.generated_label : '尚未完成整理'}}</text><text wx:if="{{sourcePeriod}}" class="ai-limit">记录日期：{{sourcePeriod}}</text><text class="ai-limit">当前全部记录：{{review.scope.total}}条决定，{{review.scope.executed}}条已执行，{{review.scope.cancelled}}条未执行{{review.scope.pending ? '，' + review.scope.pending + '条待确认' : ''}}。{{review.scope.reviewed}}条决定有回看，共{{review.scope.reflections}}次回看。</text><text wx:if="{{review.has_new_data && review.has_snapshot}}" class="ai-limit">上次整理覆盖{{review.analyzed_scope.total}}条决定、{{review.analyzed_scope.reflections}}次回看。记录已有变化，只保留依据仍有效的结论；更新后才纳入新内容。</text><text class="ai-limit">分析参考文字备注与完整回看历史。本次未识别截图；主观感受不等于收益或交易质量。</text></view></scroll-view>
 </view></view></root-portal>

@@ -89,11 +89,18 @@ function getCachedConfig() {
   return cachedConfig;
 }
 
+function applyCurrentFocus(focus) {
+  if(cachedConfig)cachedConfig.current_focus=focus||null;
+  var app=typeof getApp==='function'?getApp():null;
+  if(app&&app.globalData&&app.globalData.userConfig)app.globalData.userConfig.current_focus=focus||null;
+}
+
 module.exports = {
   getConfig: getConfig,
   addRecentSymbol: addRecentSymbol,
   setCurrentFocus: setCurrentFocus,
   hasGuideStep: hasGuideStep,
   markGuideStep: markGuideStep,
-  getCachedConfig: getCachedConfig
+  getCachedConfig: getCachedConfig,
+  applyCurrentFocus: applyCurrentFocus
 };

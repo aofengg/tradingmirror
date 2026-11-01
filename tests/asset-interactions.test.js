@@ -21,7 +21,7 @@ const component=Object.assign({data:{symbol:'A',assetKey:''},setData(patch){Obje
  const app={waitForLogin:()=>Promise.resolve(),invalidatePages(){}};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram/pages/record/index.js'),'utf8'),{
  Page:value=>{definition=value;},setTimeout,clearTimeout,wx,getCurrentPages:()=>routes,getApp:()=>app,console,
- require:name=>name.includes('trade-options')?options:name.includes('trade-service')?trade:name.includes('user-service')?{getConfig:()=>Promise.resolve({success:false}),hasGuideStep:()=>false}:name.includes('constants')?{STORAGE_KEYS:{RECORD_DRAFT:'trade_record_draft'}}:name.includes('share')?{enable(){}}:name.includes('request-id')?{create:()=> 'request'}:{}
+ require:name=>name.includes('trade-options')?options:name.includes('trade-service')?trade:name.includes('user-service')?{getConfig:()=>Promise.resolve({success:false}),getCachedConfig:()=>null,hasGuideStep:()=>false}:name.includes('constants')?{STORAGE_KEYS:{RECORD_DRAFT:'trade_record_draft'}}:name.includes('share')?{enable(){}}:name.includes('request-id')?{create:()=> 'request'}:{}
  });
  const page=Object.assign({},definition,{data:JSON.parse(JSON.stringify(definition.data)),setData(patch){Object.assign(this.data,patch);}});
  const key='["US","stock","NVDA"]';page.onLoad({stage:'after',assetKey:encodeURIComponent(key),fromAsset:'1'});assert(modal);assert.strictEqual(storage.trade_record_draft.symbol,'AAPL','incoming stock cannot overwrite draft before choice');

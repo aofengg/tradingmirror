@@ -59,7 +59,7 @@ function page(file,dependencies,extras={}) {
   records.chooseFilter(event({filter:'all'}));await tick();assert.equal(eventReads,2);assert.equal(todoReads,1,'regular lists do not fetch hidden todo cards');
 
   const navigations=[];
-  const review=page('miniprogram/pages/review/index.js',()=>({}),{wx:{navigateTo:o=>navigations.push(o)}});
+  const review=page('miniprogram/pages/review-history/index.js',()=>({}),{wx:{navigateTo:o=>navigations.push(o)}});
   review.openDetailRecord(event({id:'one'}));review.openDetailRecord(event({id:'one'}));assert.equal(navigations.length,1);
   navigations[0].complete();review.openDetailRecord(event({id:'two'}));assert.equal(navigations.length,2,'navigation unlocks when the transition completes');
 

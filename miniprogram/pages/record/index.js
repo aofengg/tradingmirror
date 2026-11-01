@@ -30,7 +30,8 @@ Page({
     restoredDraft: false,
     showRecordGuide: false,
     showCompletionGuide: false,
-    showCompletionContext: false
+    showCompletionContext: false,
+    currentReviewReminder: ''
   },
 
   onLoad: function (options) {
@@ -148,6 +149,7 @@ Page({
         recentSymbols: res.data.recent_symbols || [],
         showRecordGuide: userService.hasGuideStep('welcome', res.data) && !userService.hasGuideStep('record_context', res.data)
       });
+      if(res.success)self._updateReviewReminder(res.data.current_focus);
     }).catch(function () {});
   },
 
@@ -197,7 +199,13 @@ Page({
       step: 3
     });
     this._submissionRequestId = '';
+    this._updateReviewReminder((userService.getCachedConfig()||{}).current_focus);
     this._saveDraft();
+  },
+
+  _updateReviewReminder: function (focus) {
+    var applicable=this.data.stage==='before'&&focus&&focus.kind==='review'&&Array.isArray(focus.actions)&&focus.actions.indexOf(this.data.action)!==-1;
+    this.setData({currentReviewReminder:applicable?focus.text||focus.label||'':''});
   },
 
   chooseReason: function (event) {

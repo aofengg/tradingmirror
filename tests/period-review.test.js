@@ -4,8 +4,8 @@ var path = require('path');
 
 var root = path.resolve(__dirname, '..');
 var cloud = fs.readFileSync(path.join(root, 'cloudfunctions/tradeData/index.js'), 'utf8');
-var page = fs.readFileSync(path.join(root, 'miniprogram/pages/review/index.js'), 'utf8');
-var template = fs.readFileSync(path.join(root, 'miniprogram/pages/review/index.wxml'), 'utf8');
+var page = fs.readFileSync(path.join(root, 'miniprogram/pages/review-history/index.js'), 'utf8');
+var template = fs.readFileSync(path.join(root, 'miniprogram/pages/review-history/index.wxml'), 'utf8');
 var chart = fs.readFileSync(path.join(root, 'miniprogram/components/trend-chart/index.js'), 'utf8');
 
 assert.ok(cloud.indexOf('periodDefinition') !== -1);

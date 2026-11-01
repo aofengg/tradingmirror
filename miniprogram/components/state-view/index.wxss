@@ -51,13 +51,13 @@
   border-radius: 50%;
   color: #fff;
   background: #1f6855;
-  font-size: 22rpx;
+  font-size: calc(22rpx * var(--review-font-scale, 1));
   font-weight: 700;
 }
 
 .state__illustration--error .state__seal { background: #a6534d; }
-.state__title { color: #25352f; font-size: 30rpx; font-weight: 650; }
-.state__description { max-width: 480rpx; margin-top: 12rpx; color: #7a8680; font-size: 25rpx; line-height: 1.65; }
+.state__title { color: #25352f; font-size: calc(30rpx * var(--review-font-scale, 1)); font-weight: 650; }
+.state__description { max-width: 480rpx; margin-top: 12rpx; color: #7a8680; font-size: calc(25rpx * var(--review-font-scale, 1)); line-height: 1.65; }
 
 .state__action {
   min-width: 210rpx;
@@ -84,4 +84,4 @@
 
 .control-pressed { opacity:.65; }
 
-.state__action { min-height:88rpx; }
+.state__action { min-height:88rpx; font-size:calc(var(--font-size-md, 28rpx) * var(--review-font-scale, 1)); }

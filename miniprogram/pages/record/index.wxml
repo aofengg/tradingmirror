@@ -57,6 +57,7 @@
 
     <view wx:else class="record-body reason-body">
       <view class="context-strip"><text>{{symbol}}</text><text>·</text><text>{{actionLabel}}</text></view>
+      <view wx:if="{{currentReviewReminder}}" class="record-review-reminder"><text>给下一次的提醒</text><text>{{currentReviewReminder}}</text></view>
       <asset-context id="assetContext" symbol="{{symbol}}" asset-key="{{assetKey}}" compact bind:resolved="onAssetResolved" />
       <view class="reason-list">
         <view wx:for="{{reasons}}" wx:key="key" class="reason-row" data-reason="{{item.key}}" hover-class="reason-row--pressed" bindtap="chooseReason">

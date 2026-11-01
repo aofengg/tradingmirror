@@ -6,7 +6,8 @@
     "pages/mine/index",
     "pages/record/index",
     "pages/reflection/index",
-    "pages/asset-history/index"
+    "pages/asset-history/index",
+    "pages/review-history/index"
   ],
   "window": {
     "navigationBarTitleText": "交易留痕",

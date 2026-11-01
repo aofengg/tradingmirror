@@ -12,7 +12,19 @@ Component({
     tabs: TABS
   },
 
+  lifetimes: {
+    ready: function () { this.syncReviewSheet(); }
+  },
+  pageLifetimes: {
+    show: function () { this.syncReviewSheet(); }
+  },
+
   methods: {
+    syncReviewSheet: function () {
+      var pages = getCurrentPages();
+      var page = pages[pages.length - 1];
+      if (page && page.route === 'pages/review/index') this.setData({ hidden: Boolean(page.data.sheet) });
+    },
     switchTab: function (event) {
       var index = Number(event.currentTarget.dataset.index);
       if (index === this.data.selected || this._switching) return;

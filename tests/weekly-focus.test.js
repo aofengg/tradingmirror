@@ -52,7 +52,7 @@ const service = {module: {exports: {}}, require(name) {
 vm.runInNewContext(read('miniprogram/services/trade-service.js'), service);
 let pageDefinition, invalidations = [];
 const app = {invalidatePages: pages => invalidations.push(pages), getPageRevision: () => invalidations.length, waitForLogin: () => Promise.resolve()};
-vm.runInNewContext(read('miniprogram/pages/review/index.js'), {
+vm.runInNewContext(read('miniprogram/pages/review-history/index.js'), {
   Page(value) {pageDefinition = value;},
   console: {error() {}},
   getApp: () => app,
