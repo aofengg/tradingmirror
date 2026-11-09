@@ -1,0 +1,35 @@
+<view class="batch-page">
+  <view class="batch-nav"><view class="batch-back" bindtap="leave" hover-class="control-pressed" role="button">‹ 返回</view><text>{{stage === 'before' ? '操作前的想法' : '已发生的操作'}}</text></view>
+  <text class="batch-title">批量录入</text>
+  <text class="batch-subtitle">填好点保存，留在这里记下一笔。</text>
+  <view class="batch-date-row">
+    <view><text>{{stage === 'before' ? '想法时间' : '操作日期'}}</text><text wx:if="{{stage === 'after'}}" class="batch-date-hint">可补记</text></view>
+    <picker wx:if="{{stage === 'after'}}" class="batch-date-picker" mode="date" value="{{selectedDate}}" end="{{today}}" bindchange="chooseDate"><view class="batch-date-value">{{dateLabel}}<text>⌄</text></view></picker>
+    <text wx:else class="batch-date-value">现在</text>
+  </view>
+  <view wx:if="{{restoredDraft}}" class="batch-draft"><text>已接着上次的输入</text><view bindtap="clearDraft" hover-class="control-pressed">重新填写</view></view>
+  <view wx:if="{{loadError}}" class="batch-message batch-message--error" bindtap="retryLogin" role="button">连接暂未就绪，输入会保留 · 重试</view>
+  <view class="batch-section-label">标的<text>· 可多选</text></view>
+  <view class="batch-input-row"><input id="batchSymbol" class="batch-input" disabled="{{resolvingSymbols}}" value="{{symbolInput}}" maxlength="20" placeholder="输入股票名称或代码" placeholder-class="batch-placeholder" confirm-type="done" confirm-hold="{{true}}" bindinput="onSymbolInput" bindconfirm="addSymbol" bindfocus="onKeyboardFocus" bindblur="onKeyboardBlur" /><view class="batch-add {{!symbolInput ? 'batch-add--empty' : ''}}" bindtap="addSymbol" hover-class="control-pressed" role="button">添加</view></view>
+  <view class="batch-symbols"><view wx:for="{{symbolChoices}}" wx:key="symbol" class="batch-symbol {{item.selected ? 'batch-symbol--selected' : ''}}" data-symbol="{{item.symbol}}" bindtap="chooseSymbol" hover-class="control-pressed" role="button" aria-label="{{item.symbol}}"><text wx:if="{{item.selected}}" class="batch-symbol-check">✓</text><text>{{item.symbol}}</text></view></view>
+  <view class="batch-section-label batch-section-label--action">动作</view>
+  <view class="batch-actions"><view wx:for="{{actions}}" wx:key="key" class="batch-action {{action === item.key ? 'batch-action--selected' : ''}}" data-action="{{item.key}}" bindtap="chooseAction" hover-class="control-pressed" role="button">{{item.label}}</view></view>
+  <view class="batch-reason-head"><view class="batch-section-label">主要原因</view><view class="batch-inline-link" bindtap="toggleSupplement" hover-class="control-pressed" role="button">{{showSupplement ? '收起补充' : '补充'}}</view></view>
+  <view wx:if="{{showSupplement}}" class="batch-supplement">
+    <textarea class="batch-note" disabled="{{resolvingSymbols}}" value="{{note}}" maxlength="300" auto-height placeholder="备注，可不填" placeholder-class="batch-placeholder" bindinput="onNoteInput" bindfocus="onKeyboardFocus" bindblur="onKeyboardBlur" />
+    <view wx:if="{{stage === 'after'}}" class="batch-time-row"><text>具体时刻<text class="batch-date-hint">选填</text></text><picker mode="time" value="{{clock || '12:00'}}" bindchange="chooseClock"><view class="batch-inline-link">{{clock || '未填写'}} ⌄</view></picker><view wx:if="{{clock}}" class="batch-time-clear" bindtap="clearClock" role="button">清除</view></view>
+  </view>
+  <view wx:if="{{currentReviewReminder}}" class="batch-reminder"><text>给下一次的提醒</text><text>{{currentReviewReminder}}</text></view>
+  <text class="batch-context">{{contextLabel}}</text>
+  <view class="batch-reasons"><view wx:for="{{reasons}}" wx:key="key" class="batch-reason {{!action ? 'batch-reason--disabled' : ''}} {{reasonKey === item.key ? 'batch-reason--selected' : ''}}" data-reason="{{item.key}}" bindtap="chooseReason" hover-class="{{action ? 'control-pressed' : ''}}" role="button"><text>{{item.label}}</text><text wx:if="{{reasonKey === item.key}}" class="batch-reason-check">✓</text></view></view>
+  <view wx:if="{{storageError || queueError || message}}" class="batch-message batch-message--error"><text>{{storageError || queueError || message}}</text><view wx:if="{{storageError || queueError}}" class="batch-inline-link" bindtap="retryPending" role="button">重试</view></view>
+  <button class="batch-save" disabled="{{!canSave || resolvingSymbols}}" loading="{{resolvingSymbols}}" bindtap="save" hover-class="button-pressed">{{selectedCount ? '保存' + selectedCount + '条' : '保存'}}</button>
+  <view class="batch-feedback"><text>{{savedCount ? '已保存' + savedCount + '条' : '尚未录入'}}</text><view class="batch-feedback-actions"><view wx:if="{{undoJobId}}" class="batch-inline-link" bindtap="undoLast" hover-class="control-pressed" role="button">撤销刚才{{undoCount}}条</view><view wx:if="{{receiptCount}}" class="batch-inline-link" bindtap="toggleHistory" hover-class="control-pressed" role="button">{{showHistory ? '收起记录' : '查看记录'}} ⌄</view></view></view>
+  <view wx:if="{{pendingCount}}" class="batch-message">正在保存 · {{pendingCount}}条</view>
+  <view wx:if="{{cancellingCount}}" class="batch-message">正在撤销 · {{cancellingCount}}条</view>
+  <view wx:if="{{retryCount}}" class="batch-message batch-message--error"><text>{{retryCount}}条尚未确认完成，原输入已保留</text><view class="batch-inline-link" bindtap="retryPending" role="button">重试</view></view>
+  <view wx:if="{{showHistory}}" class="batch-history">
+    <view wx:for="{{receipts}}" wx:key="id" class="batch-receipt"><view class="batch-receipt-top"><text>{{item.symbol}}</text><text class="action-tag action-tag--{{item.action}}">{{item.actionLabel}}</text><text class="batch-receipt-status">{{item.statusLabel}}</text></view><text class="batch-receipt-reason">{{item.reasonLabel}}</text><text class="batch-receipt-time">{{item.timeLabel}}</text><text wx:if="{{item.note}}" class="batch-receipt-note">{{item.note}}</text><view wx:if="{{item.eventId && item.status === 'saved'}}" class="batch-inline-link batch-receipt-open" data-id="{{item.eventId}}" bindtap="openRecord" role="button">查看原记录 ›</view></view>
+    <view wx:if="{{hasMoreReceipts}}" class="batch-more" bindtap="moreReceipts" role="button">显示更多记录</view>
+  </view>
+</view>

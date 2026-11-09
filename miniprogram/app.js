@@ -38,6 +38,13 @@ App({
     return this._loginPromise;
   },
 
+  onShow: function () {
+    var self=this;
+    this.waitForLogin().then(function(){
+      if(self.globalData.openid)require('./services/batch-entry-store').resume(self.globalData.openid);
+    }).catch(function(){});
+  },
+
   invalidatePages: function (pageNames) {
     var revisions = this.globalData._pageRevisions;
     (pageNames || []).forEach(function (name) {

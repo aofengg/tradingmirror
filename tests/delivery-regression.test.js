@@ -104,7 +104,7 @@ const slice=(kind,start)=>({list:lists[kind].slice(start,start+20),hasMore:start
 
  // Draft ownership and idempotency survive leaving while a submission is in progress.
  let stored,requestSerial=0,submissions=[],saveResolvers=[],removed=0;
- const recordDeps=n=>n.includes('trade-service')?{createTradeEvent:payload=>{submissions.push(payload);const d=deferred();saveResolvers.push(d);return d.promise;},labels:{plans:{planned:'按原计划'}}}:n.includes('trade-options')?{ACTIONS:[{key:'buy',label:'买入'}],findOption:(options,key)=>options.find(x=>x.key===key),getReasons:()=>[{key:'target'},{key:'other'}]}:n.includes('request-id')?{create:prefix=>prefix+(++requestSerial)}:n.includes('constants')?{STORAGE_KEYS:{RECORD_DRAFT:'draft'}}:n.includes('user-service')?{hasGuideStep:()=>false}:n.includes('toast')?{showError(){}}:{};
+ const recordDeps=n=>n.includes('asset-service')?{resolveEntries:async()=>[null]}:n.includes('trade-service')?{createTradeEvent:payload=>{submissions.push(payload);const d=deferred();saveResolvers.push(d);return d.promise;},labels:{plans:{planned:'按原计划'}}}:n.includes('trade-options')?{ACTIONS:[{key:'buy',label:'买入'}],findOption:(options,key)=>options.find(x=>x.key===key),getReasons:()=>[{key:'target'},{key:'other'}]}:n.includes('request-id')?{create:prefix=>prefix+(++requestSerial)}:n.includes('constants')?{STORAGE_KEYS:{RECORD_DRAFT:'draft'}}:n.includes('user-service')?{hasGuideStep:()=>false}:n.includes('toast')?{showError(){}}:{};
  const storageWx={setStorageSync:(key,v)=>stored=JSON.parse(JSON.stringify(v)),getStorageSync:()=>stored,removeStorageSync:()=>{removed++;stored=undefined;}};
  const record=page('record',recordDeps,{wx:storageWx});
  record.setData({step:3,symbol:'TEST',action:'buy',reasons:[{key:'target'},{key:'other'}]});

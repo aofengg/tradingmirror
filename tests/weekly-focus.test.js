@@ -26,6 +26,7 @@ const db = {
 };
 const backend = {exports: {}, console, require(name) {
   if (name === 'wx-server-sdk') return {init() {}, database: () => db, getWXContext: () => ({OPENID: 'test_owner'})};
+  if (name === './entry-time') return require(path.join(root, 'cloudfunctions/tradeData/entry-time'));
   if (name === './asset-tracking') return require(path.join(root, 'cloudfunctions/tradeData/asset-tracking'));
   return require(name);
 }};

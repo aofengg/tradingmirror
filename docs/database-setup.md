@@ -1,5 +1,17 @@
 # 微信云开发数据库配置（Schema v2）
 
+## 1.8.0 批量录入增量（2026-11-05）
+
+新增 `entry_requests` 技术集合，业务事件仍在 `trade_events`，无需旧数据迁移。每条事件与回执在同一事务写入；原请求ID可安全重试。撤销物理移除未被后续回看／补充的事件，留下取消墓碑防止迟到重试复活。原单条创建和删除契约保留。
+
+回执 `_openid` 固定为服务身份 `__batch_entry_service__`，不使用真实用户OpenID。仅含不透明事件ID、带账号及随机请求数的摘要、saved／undone状态及receipt_version=2；不保存股票、理由、备注或时间。业务归属由云函数登录身份与请求ID共同计算的确定ID校验。客户端无需读写回执，推荐控制台规则为read=false、write=false。当前未宣称修改了控制台ACL；实际核验服务所有权、客户端精确读取不可访问、更新stats.updated=0及服务端文档未改变，不能以“调用resolve”误判写入成功。
+
+仅按主键读写，无需组合索引。先创建集合，再部署tradeData及日期精度兼容的reviewAI，完成真实创建／重试／撤销／权限验证后上传客户端。部署终态见 [1.8.0验收记录](batch-entry-1.8.0-acceptance.md)。
+
+## 市场大事记增量（2026-11-06）
+
+独立集合 `market_chronicle`，schema_version=1，仅通过tradeData的list/save/delete/undoMarketChronicle接口读写。文档使用固定服务身份_openid，真实微信登录身份在服务端映射为owner_key；客户端不能作为创建者读取或直接修改。每账号/市场/日期确定ID，事务revision冲突保护，未知与0分开，保留各指数独立数值。年度_openid服务身份+owner_key+market+year+date升序索引 `service_owner_market_year_date`。不迁移、重写原交易和回看。具体契约及实际验证见 [市场大事记](market-chronicle.md)。
+
 ## 集合
 
 - `trade_events`：操作事件主表；

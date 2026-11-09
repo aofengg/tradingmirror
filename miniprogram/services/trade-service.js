@@ -9,8 +9,9 @@ var cloudApi = require('../utils/cloud-api');
 var requestId = require('../utils/request-id');
 var assetUtil = require('../utils/asset');
 var readCache = require('../utils/read-cache');
+var entryTime = require('../utils/entry-time');
 var EVENT_LIST_FIELDS = {};
-('_id symbol market market_source asset_type stage execution_status action action_label reason_key reason_label plan_status created_at recorded_at occurred_at executed_at review_due_at reflection_count latest_feeling latest_feeling_label latest_reflection_at optional_note').split(' ').forEach(function (key) { EVENT_LIST_FIELDS[key] = true; });
+('_id symbol market market_source asset_type stage execution_status action action_label reason_key reason_label plan_status created_at recorded_at occurred_at occurred_date occurred_at_precision entry_source timezone executed_at review_due_at reflection_count latest_feeling latest_feeling_label latest_reflection_at optional_note').split(' ').forEach(function (key) { EVENT_LIST_FIELDS[key] = true; });
 
 var ACTION_LABELS = { buy: '买入', add: '加仓', reduce: '减仓', exit: '清仓' };
 var PLAN_LABELS = { planned: '按原计划', impulsive: '临时决定', uncertain: '不确定' };
@@ -71,9 +72,10 @@ function createTradeEvent(data) {
     optional_note: '',
     ext: {}
   };
+  if (data.assetKey) record.asset_key = data.assetKey;
   return cloudApi.call('createTradeEvent', record).then(function (res) {
     if (!res.success) return res;
-    userService.addRecentSymbol(symbol).catch(function () {});
+    userService.addRecentSymbol(res.data.symbol || symbol, res.data).catch(function () {});
     return { success: true, data: res.data, error: null };
   });
 }
@@ -128,7 +130,7 @@ function getReflectionsForTrade(tradeEventId) {
 }
 
 function decorateReflection(item) {
-      var horizonLabels = { immediate: '当下回看', next_day: '次日回看', one_week: '一周回看', later: '长期回看', legacy: '过往回看' };
+      var horizonLabels = { immediate: '当下回看', next_day: '次日回看', one_week: '一周回看', later: '长期回看', legacy: '过往回看', date_only: '日期补记后回看' };
       return Object.assign({}, item, {
         schema_version: item.schema_version || 1,
         horizon_key: item.horizon_key || 'legacy',
@@ -166,8 +168,10 @@ function decorateEvent(item) {
     symbol_layout: symbolLayout(item.symbol),
     reason_label: item.reason_label || REASON_LABELS[item.reason_key] || item.reason_key,
     plan_label: PLAN_LABELS[item.plan_status] || '不确定',
-    created_label: dateUtil.formatDateTime(item.created_at),
-    relative_label: dateUtil.relativeTime(item.created_at),
+    created_label: item.occurred_at_precision ? entryTime.label(item,false) : dateUtil.formatDateTime(item.created_at),
+    relative_label: item.occurred_at_precision === 'date' ? entryTime.short(item.occurred_date) + '补记' : dateUtil.relativeTime(item.created_at),
+    entry_source_label: item.entry_source === 'retrospective' ? '事后补记' : '',
+    recorded_label: item.entry_source === 'retrospective' ? dateUtil.formatDateTime(item.recorded_at || item.created_at) : '',
     latest_feeling_label: item.latest_feeling_label || '',
     execution_status: item.execution_status || 'executed',
     execution_label: executionLabels[item.execution_status || 'executed']

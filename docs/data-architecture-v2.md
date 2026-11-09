@@ -38,7 +38,15 @@ user_config 1 ── n trade_events 1 ── n reflection_snapshots
 - `event_age_hours`：生成快照时距操作经过的小时数；
 - `timezone`：解释用户自然日与周区间。
 
-`horizon_key` 当前取值：`immediate`、`next_day`、`one_week`、`later`；迁移记录使用 `legacy`。
+`horizon_key` 当前取值：`immediate`、`next_day`、`one_week`、`later`、`date_only`；迁移记录使用 `legacy`。
+
+### 1.8.0 日期精度与批量回执
+
+新批量记录增加 `occurred_date`（上海自然日）、`occurred_at_precision`（datetime／date）、`entry_source`（at_time／retrospective）。datetime沿用真实发生时刻；date下的occurred_at及executed_at仅为自然日分区锚点，不代表00:00发生。列表与详情、个股、状态图不显示虚构时分，统计按操作日期归属。recorded_at保留服务器实际收录时间，补记不成为当时留痕的证据。旧记录不补造字段，按原精确时间读取。
+
+日期精度的待回看时间为该自然日末加18小时；间隔按日期区间计算，跨回看桶时horizon_key=date_only、event_age_hours=null。AI显式读取精度与补记来源，不推断未知时刻的同日先后。
+
+批量请求与事件由真实登录身份和client_request_id共同确定ID。entry_requests是服务端幂等回执与取消墓碑，不含业务原文或真实账号身份。草稿与持久化任务按账号、阶段隔离；提交后不可改原快照。前台每3条调用，一次最多20条提交。已成功内容不会被后续输入或重试覆盖。
 
 ## 标的身份
 

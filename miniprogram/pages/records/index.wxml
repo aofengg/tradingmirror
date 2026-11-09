@@ -3,18 +3,23 @@
     <view class="records-head">
       <view>
 
-        <text class="page-title">记录</text>
-        <text class="page-subtitle">找到当时的决定与后来的感受。</text>
+        <text class="page-title">{{viewMode === 'market' ? '市场大事记' : '记录'}}</text>
+        <text class="page-subtitle">{{viewMode === 'market' ? '留住大行情，回看周期与转折。' : '找到当时的决定与后来的感受。'}}</text>
       </view>
-      <view class="add-button" role="button" aria-label="记录刚刚的操作" hover-class="button-pressed" bindtap="createRecord">
-        <view class="add-button__line"></view><view class="add-button__line add-button__line--vertical"></view>
+      <view class="records-head-actions">
+        <view wx:if="{{viewMode !== 'market'}}" class="batch-entry-link records-batch-entry" bindtap="createBatchRecord" hover-class="control-pressed" role="button">批量录入</view>
+        <view class="add-button" role="button" aria-label="{{viewMode === 'market' ? '记一次大行情' : '记录刚刚的操作'}}" hover-class="button-pressed" bindtap="{{viewMode === 'market' ? 'createMarketRecord' : 'createRecord'}}">
+          <view class="add-button__line"></view><view class="add-button__line add-button__line--vertical"></view>
+        </view>
       </view>
     </view>
 
     <view class="records-view-switch">
       <view class="records-view-switch__item {{viewMode === 'time' ? 'records-view-switch__item--active' : ''}}" data-mode="time" bindtap="chooseView" hover-class="control-pressed" hover-stay-time="80">按时间看</view>
       <view class="records-view-switch__item {{viewMode === 'asset' ? 'records-view-switch__item--active' : ''}}" data-mode="asset" bindtap="chooseView" hover-class="control-pressed" hover-stay-time="80">按个股看</view>
+      <view class="records-view-switch__item {{viewMode === 'market' ? 'records-view-switch__item--active' : ''}}" data-mode="market" bindtap="chooseView" hover-class="control-pressed" hover-stay-time="80">市场大事记</view>
     </view>
+    <market-chronicle wx:if="{{viewMode === 'market'}}" id="marketChronicle" />
     <block wx:if="{{viewMode === 'time'}}">
     <scroll-view wx:if="{{eventCount || filter !== 'all'}}" class="filter-scroll" scroll-x enhanced show-scrollbar="{{false}}">
       <view class="filter-list">
@@ -97,14 +102,14 @@
       <state-view type="error" title="记录暂时没打开" description="稍后重试，不会影响已经保存的内容" action-text="重新加载" bind:action="retry" />
     </view>
     </block>
-    <block wx:else>
+    <block wx:elif="{{viewMode === 'asset'}}">
       <view class="asset-search-shell"><input class="asset-search" placeholder="搜索代码或名称" placeholder-class="asset-search__placeholder" value="{{assetQuery}}" bindinput="searchAssets" maxlength="30" /><view wx:if="{{assetQuery}}" class="asset-search-clear" bindtap="clearAssetSearch" role="button" aria-label="清空搜索" hover-class="control-pressed">×</view></view>
       <view class="asset-filter-list">
         <view class="filter-chip {{!assetTodoOnly ? 'filter-chip--active' : ''}}" data-filter="all" bindtap="chooseAssetFilter" hover-class="control-pressed" hover-stay-time="80">全部个股</view>
         <view class="filter-chip {{assetTodoOnly ? 'filter-chip--active' : ''}}" data-filter="todo" bindtap="chooseAssetFilter" hover-class="control-pressed" hover-stay-time="80">有待办</view>
       </view>
       <view wx:for="{{assetItems}}" wx:key="key" class="card asset-card" data-key="{{item.key}}" bindtap="openAsset" hover-class="button-pressed">
-        <view class="asset-card__head"><text class="record-card__symbol">{{item.symbol}}</text><text class="pill">{{item.market_label}}</text></view>
+        <view class="asset-card__head"><text class="record-card__symbol">{{item.symbol}}</text><view class="asset-market-control" data-key="{{item.key}}" catchtap="chooseAssetMarket" role="button" aria-label="{{item.symbol + '，' + item.market_label + '，更正市场'}}" hover-class="control-pressed"><view class="pill asset-market-pill"><text>{{item.market_label}}</text><text wx:if="{{marketUpdatingKey === item.key}}" class="asset-market-pending">…</text><view wx:else class="asset-market-chevron" aria-hidden="true"></view></view></view></view>
         <text class="asset-card__last">{{item.latest.action_label}} · {{item.latest.execution_label}} · {{item.latest.history_date}}</text>
         <text class="asset-card__reason">“{{item.latest.reason_label}}”</text>
         <text wx:if="{{item.latest.optional_note}}" class="record-card__note">{{item.latest.optional_note}}</text>
@@ -115,5 +120,15 @@
       <view wx:elif="{{!assetItems.length}}" class="card state-card"><state-view type="empty" title="{{assetQuery ? '没有找到这个标的' : assetTodoOnly ? '暂时没有个股待办' : '第一条个股足迹，从下一次记录开始'}}" description="{{assetQuery ? '试试代码或曾用名称' : '每次决定，都会接在这只股票的足迹里'}}" /></view>
       <view wx:elif="{{!assetMore}}" class="records-more">以上为全部个股</view>
     </block>
+  </view>
+  <view wx:if="{{viewMode === 'asset' && marketPicker}}" class="asset-market-layer">
+    <view class="asset-market-shade" bindtap="closeAssetMarket"></view>
+    <view class="asset-market-sheet" role="dialog" aria-label="更正市场">
+      <view class="asset-market-sheet__head"><text>更正市场</text><view class="asset-market-sheet__close" bindtap="closeAssetMarket" role="button" aria-label="关闭" hover-class="control-pressed">×</view></view>
+      <text class="asset-market-sheet__symbol">{{marketPicker.symbol}}</text>
+      <view wx:for="{{marketOptions}}" wx:key="key" class="asset-market-option {{marketPicker.market === item.key ? 'asset-market-option--selected' : ''}}" data-market="{{item.key}}" bindtap="selectAssetMarket" role="button" aria-pressed="{{marketPicker.market === item.key}}" hover-class="control-pressed">
+        <text>{{item.label}}</text><text wx:if="{{marketPicker.market === item.key}}" aria-hidden="true">✓</text>
+      </view>
+    </view>
   </view>
 </view>

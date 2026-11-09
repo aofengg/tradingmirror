@@ -43,6 +43,8 @@ button::after { border: 0; }
 
 .page-content { position: relative; z-index: 1; }
 
+.batch-entry-link { display:flex; flex:none; align-items:center; justify-content:center; min-height:88rpx; padding:0 12rpx; color:var(--color-primary); font-size:var(--font-size-xs); font-weight:500; white-space:nowrap; }
+
 .eyebrow {
   display: block;
   color: var(--color-primary);

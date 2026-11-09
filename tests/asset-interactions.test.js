@@ -21,14 +21,13 @@ const component=Object.assign({data:{symbol:'A',assetKey:''},setData(patch){Obje
  const app={waitForLogin:()=>Promise.resolve(),invalidatePages(){}};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram/pages/record/index.js'),'utf8'),{
  Page:value=>{definition=value;},setTimeout,clearTimeout,wx,getCurrentPages:()=>routes,getApp:()=>app,console,
- require:name=>name.includes('trade-options')?options:name.includes('trade-service')?trade:name.includes('user-service')?{getConfig:()=>Promise.resolve({success:false}),getCachedConfig:()=>null,hasGuideStep:()=>false}:name.includes('constants')?{STORAGE_KEYS:{RECORD_DRAFT:'trade_record_draft'}}:name.includes('share')?{enable(){}}:name.includes('request-id')?{create:()=> 'request'}:{}
+ require:name=>name.includes('asset-service')?{resolveEntries:async()=>[{symbol:'NVDA',market:'HK',asset_type:'stock',key:'["HK","stock","NVDA"]'}]}:name.includes('trade-options')?options:name.includes('trade-service')?trade:name.includes('user-service')?{getConfig:()=>Promise.resolve({success:false}),getCachedConfig:()=>null,hasGuideStep:()=>false}:name.includes('constants')?{STORAGE_KEYS:{RECORD_DRAFT:'trade_record_draft'}}:name.includes('share')?{enable(){}}:name.includes('request-id')?{create:()=> 'request'}:{}
  });
  const page=Object.assign({},definition,{data:JSON.parse(JSON.stringify(definition.data)),setData(patch){Object.assign(this.data,patch);}});
  const key='["US","stock","NVDA"]';page.onLoad({stage:'after',assetKey:encodeURIComponent(key),fromAsset:'1'});assert(modal);assert.strictEqual(storage.trade_record_draft.symbol,'AAPL','incoming stock cannot overwrite draft before choice');
  modal.success({confirm:true});assert.strictEqual(page.data.symbol,'AAPL');assert.strictEqual(page.data.step,3);assert.strictEqual(page.data.stage,'before');
  page._prefillAsset(encodeURIComponent(key),'after');modal.success({cancel:true});assert.strictEqual(page.data.assetKey,key,'encoded route must become canonical context identity');
  storage.trade_record_draft={symbol:'RKLB',stage:'after',step:2,action:''};page._restoreDraft('after');assert.strictEqual(page.data.step,2,'restore the action step before an action has been selected');
- page.data.symbol='NEW';page.onAssetResolved({detail:{symbol:'OLD',key:'stale'}});assert.notStrictEqual(page.data.resolvedAssetKey,'stale');
- page.data.symbol='NVDA';page.data.resolvedAssetKey=key;page.chooseAction({currentTarget:{dataset:{action:'buy'}}});page.chooseReason({currentTarget:{dataset:{reason:'target'}}});await tick();await tick();assert.strictEqual(creation.symbol,'NVDA');assert.strictEqual(creation.market,'US');assert.strictEqual(page.data.completed,true);assert(!storage.trade_record_draft);
+ page.data.symbol='NVDA';page.chooseAction({currentTarget:{dataset:{action:'buy'}}});page.chooseReason({currentTarget:{dataset:{reason:'target'}}});await tick();await tick();assert.strictEqual(creation.symbol,'NVDA');assert.strictEqual(creation.market,'HK');assert.strictEqual(creation.assetKey,'["HK","stock","NVDA"]');assert.strictEqual(page.data.completed,true);assert(!storage.trade_record_draft);
  console.log('asset interactions: stale responses, failure state, detached requests, draft preservation and canonical identity submission passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

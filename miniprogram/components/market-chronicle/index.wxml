@@ -1,0 +1,146 @@
+<template name="system-event-values">
+  <view wx:if="{{row.system}}" class="mc-source-values"><text class="mc-source-tag">系统</text><text>{{row.system.closeText}} 点</text><text class="mc-trend--{{row.system.trend}}">{{row.system.changeText}}</text></view>
+  <view wx:if="{{row.mine}}" class="mc-source-values"><text class="mc-source-tag mc-source-tag--mine">我的</text><text>{{row.mine.hasClose ? row.mine.closeText + ' 点' : '收盘点位未填'}}</text><text class="mc-trend--{{row.mine.trend}}">{{row.mine.changeText}}</text></view>
+</template>
+<template name="system-event-detail">
+  <view wx:if="{{row.system}}" class="mc-source-record">
+    <text wx:if="{{showTitle}}" class="mc-event-topic">{{row.system.title}}</text>
+    <text wx:if="{{row.system.note}}" class="mc-observation">{{row.system.note}}</text>
+  </view>
+  <view wx:if="{{row.mine}}" class="mc-source-record">
+    <text class="mc-source-tag mc-source-tag--mine">我的观察</text>
+    <text wx:if="{{row.mine.note}}" class="mc-observation">{{row.mine.note}}</text>
+    <button size="mini" class="mc-button mc-edit" data-date="{{row.date}}" bindtap="editRecord" disabled="{{locked}}">{{row.mine.hasQuote ? '更正这条' : '补充本指数'}} ›</button>
+  </view>
+</template>
+<view class="ui-portal mc">
+  <view class="mc-toolbar">
+    <button size="mini" class="mc-button mc-context" bindtap="togglePicker" disabled="{{saving || pending}}" aria-label="切换市场和指数">{{marketLabel}} · {{indexLabel}} <text class="mc-chevron">⌄</text></button>
+    <picker mode="date" fields="year" value="{{year}}" start="1900" end="{{today}}" disabled="{{saving || pending}}" bindchange="chooseYear"><view class="mc-year" role="button" aria-label="切换年份">{{year}}年 <text class="mc-chevron">⌄</text></view></picker>
+  </view>
+  <view wx:if="{{pickerOpen}}" class="mc-panel mc-picker">
+    <view class="mc-markets"><button size="mini" wx:for="{{markets}}" wx:key="key" class="mc-button mc-market {{pickerMarket === item.key ? 'mc-market--active' : ''}}" data-market="{{item.key}}" bindtap="chooseMarket">{{item.label}}</button></view>
+    <view class="mc-indices"><button size="mini" wx:for="{{indices}}" wx:key="key" class="mc-button mc-index {{market === pickerMarket && index === item.key ? 'mc-index--active' : ''}}" data-index="{{item.key}}" bindtap="chooseIndex"><text>{{item.label}}</text><text class="mc-index-name">{{item.name}}</text></button></view>
+  </view>
+  <view wx:if="{{!editorOpen}}" class="mc-display-bar">
+    <view class="mc-view-switch"><button size="mini" class="mc-button mc-view-button {{mode === 'chart' ? 'mc-view--active' : ''}}" data-mode="chart" bindtap="chooseMode">图示</button><button size="mini" class="mc-button mc-view-button {{mode === 'timeline' ? 'mc-view--active' : ''}}" data-mode="timeline" bindtap="chooseMode">年表</button></view>
+    <picker wx:if="{{systemIndex}}" mode="selector" range="{{sources}}" range-key="label" value="{{sourceIndex}}" bindchange="chooseSource"><view class="mc-source-picker" role="button" aria-label="切换数据来源">{{sources[sourceIndex].label}} <text class="mc-chevron">⌄</text></view></picker>
+  </view>
+  <view wx:if="{{!editorOpen && (systemVisible || !systemIndex || source !== 'system')}}" class="mc-scope">
+    <text wx:if="{{systemVisible}}">系统行情截至 {{systemAsOf}}</text>
+    <text wx:elif="{{!systemIndex || source !== 'system'}}">{{rows.length ? '已记 ' + rows.length + ' 个日期 · ' + graph.points.length + ' 个收盘点位' : '手动记录 · 收盘点位与涨跌幅'}}</text>
+    <button size="mini" wx:if="{{mode === 'timeline' && (systemVisible ? systemRows.length : source !== 'system' || !systemIndex ? rows.length : 0)}}" class="mc-button mc-sort" bindtap="toggleSort">{{sort === 'time' ? '按幅度看' : '按时间看'}}</button>
+  </view>
+  <view wx:if="{{editorOpen}}" class="mc-panel mc-editor">
+    <view class="mc-editor-head"><text>{{draft.editing ? '更正这一天' : '记一次大行情'}}</text><button size="mini" class="mc-button mc-close" bindtap="closeEditor" disabled="{{saving}}">收起</button></view>
+    <text class="mc-caption">{{marketLabel}} · {{indexName}} · 点位与涨跌幅至少填一项</text>
+    <view class="mc-date-row"><text class="mc-date-label">交易日期</text><picker mode="date" value="{{draft.date}}" start="1900-01-01" end="{{today}}" disabled="{{draft.editing || saving || pending}}" bindchange="changeDate"><view class="mc-date-value">{{draft.date}}<text wx:if="{{!draft.editing}}" class="mc-date-hint">可选历史日期 ⌄</text><text wx:else class="mc-date-hint">日期固定</text></view></picker></view>
+    <view class="mc-field"><label for="mc-close">收盘点位 <text class="mc-unit">点</text></label><input id="mc-close" class="mc-input" type="digit" value="{{draft.close}}" data-field="close" bindinput="inputField" placeholder="例如 22380.00" disabled="{{saving || pending}}" maxlength="16" adjust-position cursor-spacing="24" /></view>
+    <view class="mc-field"><text>收盘涨跌幅 <text class="mc-unit">选填</text></text><view class="mc-change-input"><view class="mc-signs"><button size="mini" class="mc-button mc-sign {{draft.sign === '1' ? 'mc-sign--up' : ''}}" data-sign="1" bindtap="chooseSign" disabled="{{saving || pending}}">涨 ＋</button><button size="mini" class="mc-button mc-sign {{draft.sign === '-1' ? 'mc-sign--down' : ''}}" data-sign="-1" bindtap="chooseSign" disabled="{{saving || pending}}">跌 −</button></view><input class="mc-input mc-amount" type="digit" value="{{draft.amount}}" data-field="amount" bindinput="inputField" placeholder="例如 3.8" aria-label="涨跌幅百分比" disabled="{{saving || pending}}" maxlength="16" cursor-spacing="24" /><text class="mc-percent">%</text></view></view>
+    <view class="mc-field"><label for="mc-note">背景或当时观察 <text class="mc-unit">选填</text></label><textarea id="mc-note" class="mc-note-input" value="{{draft.note}}" data-field="note" bindinput="inputField" placeholder="发生了什么，或你当时怎么看" maxlength="200" auto-height disabled="{{saving || pending}}" cursor-spacing="30" /></view>
+    <view wx:if="{{formError}}" class="mc-error" role="alert">{{formError}}</view>
+    <button size="mini" wx:if="{{conflict}}" class="mc-button mc-reload" bindtap="loadLatest" disabled="{{saving}}">载入最新记录</button>
+    <button size="mini" wx:else class="mc-button mc-save" bindtap="save" loading="{{saving}}" disabled="{{saving || saveDisabled}}">{{saving ? '正在保存' : pending ? '重试保存' : '保存到大事记'}}</button>
+    <button size="mini" wx:if="{{draft.editing && draft.hasQuote && !pending && !conflict}}" class="mc-button mc-delete" bindtap="deleteRecord" disabled="{{saving}}">删除本指数这一天的记录</button>
+  </view>
+  <text wx:if="{{storageWarning}}" class="mc-error">本机草稿暂时无法保存，请先完成云端保存。</text>
+  <view wx:if="{{message}}" class="mc-feedback" aria-live="polite"><text>{{message}}</text><button size="mini" class="mc-button" wx:if="{{canUndo}}" bindtap="undo" disabled="{{saving}}">撤销</button></view>
+  <view wx:if="{{!editorOpen && systemIndex && source !== 'mine' && systemFailed}}" class="mc-load-retry" bindtap="retrySystem" role="button">{{systemAsOf ? '暂时无法更新系统行情，已保留上次版本。点此重试' : '系统行情暂时未能载入。点此重试'}}</view>
+  <view wx:if="{{loadFailed && (!systemIndex || source !== 'system')}}" class="mc-load-retry" bindtap="refresh" role="button">{{rows.length ? '个人记录更新暂时失败，已有记录仍保留。点此重试' : '个人记录暂时未能载入。点此重试'}}</view>
+  <block wx:if="{{!editorOpen && systemVisible}}">
+    <view wx:if="{{mode === 'chart'}}" class="mc-week-chart">
+      <view class="mc-chart-head">
+        <view><text class="mc-chart-title">{{indexLabel}}{{weekMode === 'candle' ? '周 K' : '周线'}}</text><text class="mc-chart-date">{{systemSelected ? systemSelected.date : weekReadout ? weekReadout.first + ' 至 ' + weekReadout.date : systemDate}}</text></view>
+        <view class="mc-week-switch">
+          <button size="mini" class="mc-button {{weekMode === 'line' ? 'mc-week-active' : ''}}" data-mode="line" bindtap="chooseWeekMode">收盘线</button>
+          <button size="mini" class="mc-button {{weekMode === 'candle' ? 'mc-week-active' : ''}}" data-mode="candle" bindtap="chooseWeekMode">周 K</button>
+        </view>
+      </view>
+      <view wx:if="{{systemSelected || weekPins.length}}" class="mc-week-annotation-row">
+        <view wx:if="{{systemSelected}}" class="mc-week-values"><template is="system-event-values" data="{{row: systemSelected}}" /></view>
+        <button wx:if="{{weekPins.length}}" size="mini" class="mc-button mc-week-title-toggle" bindtap="toggleWeekTitles">{{showWeekTitles ? '隐藏标题' : '显示标题'}}</button>
+      </view>
+      <view class="mc-week-grid">
+        <view class="mc-week-y"><text wx:for="{{weekTicks}}" wx:key="y" style="top:{{item.y}}%">{{item.label}}</text></view>
+        <view class="mc-week-plot" bindtap="selectWeekPlot" aria-label="{{year + '年纳指周线，点击可查看交易周和大事记'}}">
+          <view wx:for="{{weekTicks}}" wx:key="y" class="mc-grid" style="top:{{item.y}}%"></view>
+          <canvas type="2d" id="mc-week-canvas" class="mc-week-canvas"></canvas>
+          <view wx:if="{{weekSelectedX !== null}}" class="mc-week-guide" style="left:{{weekSelectedX}}%"></view>
+          <block wx:for="{{weekPins}}" wx:key="week">
+            <view class="mc-week-pin-stem {{weekReadout.date === item.week ? 'mc-week-pin-stem--active' : ''}}" style="left:{{item.x}}%;top:{{item.stemTop}}%;height:{{item.stemHeight}}%"></view>
+            <button size="mini" class="mc-button mc-week-pin mc-week-pin--{{item.source}} mc-week-pin-color--{{weekReadout.date === item.week && systemSelected ? (systemSelected.system ? systemSelected.system.trend : systemSelected.mine.trend) : item.trend}} {{weekReadout.date === item.week ? 'mc-week-pin--active' : ''}}" style="left:{{item.x}}%;top:{{item.y}}%" data-week="{{item.week}}" catchtap="selectWeekPin" aria-label="{{item.label}}" aria-pressed="{{weekReadout.date === item.week}}">
+              <text wx:if="{{item.count > 1}}" class="mc-week-pin-count">{{item.count}}</text><view wx:else class="mc-week-pin-dot"></view>
+            </button>
+          </block>
+          <text wx:for="{{weekLabels}}" wx:key="week" class="mc-week-label {{item.active ? 'mc-week-label--active' : ''}}" style="left:{{item.x}}px;top:{{item.y}}px;width:{{item.w}}px" aria-label="{{item.title}}">{{item.text}}</text>
+        </view>
+      </view>
+      <view class="mc-week-axis">
+        <text wx:for="{{weekAxis}}" wx:key="date" class="{{item.last ? 'mc-week-axis-last' : index === 0 ? 'mc-week-axis-first' : ''}}" style="left:{{item.x}}%">{{item.label}}</text>
+      </view>
+      <view wx:if="{{weekReadout}}" class="mc-week-readout">
+        <text>周收 {{weekReadout.close}}</text><text wx:if="{{weekMode === 'candle'}}">开 {{weekReadout.open}} · 高 {{weekReadout.high}} · 低 {{weekReadout.low}}</text>
+      </view>
+      <view wx:if="{{weekEventDates.length > 1}}" class="mc-week-event-dates">
+        <button size="mini" wx:for="{{weekEventDates}}" wx:key="date" class="mc-button mc-date-chip {{systemDate === item.date ? 'mc-date-chip--active' : ''}}" data-date="{{item.date}}" bindtap="selectSystemDate" aria-label="{{item.date}}">{{item.label}}</button>
+      </view>
+      <view wx:if="{{systemSelected}}" class="mc-detail">
+        <text class="mc-detail-date">{{systemSelected.date}} · {{indexName}}</text>
+        <template is="system-event-detail" data="{{row: systemSelected, showTitle: true, locked: saving || pending}}" />
+      </view>
+    </view>
+    <view wx:elif="{{systemRows.length}}" class="mc-timeline">
+      <view wx:for="{{systemRows}}" wx:key="date" class="mc-event">
+        <view class="mc-event-button" data-date="{{item.date}}" bindtap="toggleSystemEvent" role="button" aria-expanded="{{systemExpanded === item.date}}">
+          <view class="mc-event-date"><text class="mc-event-short-date">{{item.shortDate}}</text><text class="mc-event-year">{{year}}</text></view>
+          <view class="mc-event-dot mc-mark--{{item.system ? item.system.trend : item.mine.trend}}"></view>
+          <view class="mc-event-body">
+            <view class="mc-event-top"><text class="mc-event-topic">{{item.system ? item.system.title : '我的记录'}}</text><text class="mc-chevron">{{systemExpanded === item.date ? '⌃' : '⌄'}}</text></view>
+            <template is="system-event-values" data="{{row: item}}" />
+          </view>
+        </view>
+        <view wx:if="{{systemExpanded === item.date}}" class="mc-event-expanded"><template is="system-event-detail" data="{{row: item, locked: saving || pending}}" /></view>
+      </view>
+    </view>
+    <view wx:else class="mc-state"><state-view type="empty" title="这一年还没有大事记" description="切到图示可以查看当年的系统周线。" compact /></view>
+  </block>
+  <block wx:elif="{{!editorOpen && systemIndex && source === 'system'}}">
+    <view wx:if="{{systemLoading}}" class="mc-state"><state-view type="loading" title="正在载入系统行情" compact /></view>
+    <view wx:elif="{{!systemFailed}}" class="mc-state"><state-view type="empty" title="{{systemAsOf ? '系统行情未覆盖这一年' : '系统行情尚未发布'}}" description="{{systemAsOf ? '可以切换年份，或查看自己的记录。' : '你可以切换到「只看我的」。'}}" compact /></view>
+  </block>
+  <view wx:elif="{{!editorOpen && loading}}" class="mc-state"><state-view type="loading" title="正在翻开大事记" compact /></view>
+  <block wx:elif="{{!editorOpen && rows.length}}">
+    <view wx:if="{{mode === 'chart'}}" class="mc-chart">
+      <block wx:if="{{graph.points.length}}">
+        <view class="mc-chart-head" aria-live="polite"><view><text class="mc-chart-title">{{indexLabel}}收盘点位</text><text class="mc-chart-date">{{selected.date}}</text></view><view class="mc-chart-readout"><text class="mc-chart-price">{{selected.hasClose ? selected.closeText : '点位未填'}}<text wx:if="{{selected.hasClose}}" class="mc-unit">点</text></text><text class="mc-chart-change mc-trend--{{selected.trend}}">{{selected.changeText}}</text></view></view>
+        <view class="mc-chart-area">
+          <text class="mc-axis-unit">点</text>
+          <view class="mc-y-axis"><text wx:for="{{graph.ticks}}" wx:key="y" class="mc-y-tick" style="top:{{item.y}}%">{{item.label}}</text></view>
+          <view class="mc-plot" bindtap="selectPlot" role="img" aria-label="{{year + '年' + indexName + '收盘点位，红涨绿跌；可通过下方日期查看详细数值'}}">
+            <view wx:for="{{graph.ticks}}" wx:key="y" class="mc-grid" style="top:{{item.y}}%"></view>
+            <view wx:for="{{graph.points}}" wx:key="date" class="mc-mark mc-mark--{{item.trend}} {{selectedDate === item.date ? 'mc-mark--selected' : ''}}" style="left:{{item.x}}%;top:{{item.y}}%"></view>
+          </view>
+          <view class="mc-x-axis"><text wx:for="{{graph.xTicks}}" wx:key="label" class="mc-x-tick {{index === 0 ? 'mc-x-tick--first' : index === 3 ? 'mc-x-tick--last' : ''}}" style="left:{{item.x}}%">{{item.label}}</text></view>
+        </view>
+        <text class="mc-chart-note">仅显示已记点位{{graph.missing ? ' · ' + graph.missing + ' 个日期未填点位' : ''}}</text>
+      </block>
+      <text wx:else class="mc-no-points">本指数还没填收盘点位，选择日期即可补录。</text>
+      <scroll-view class="mc-dates-scroll" scroll-x enhanced show-scrollbar="{{false}}" scroll-into-view="{{'mc-chip-' + selectedDate}}" scroll-with-animation><view class="mc-dates"><button size="mini" wx:for="{{rows}}" wx:key="date" id="mc-chip-{{item.date}}" class="mc-button mc-date-chip {{selectedDate === item.date ? 'mc-date-chip--active' : ''}}" data-date="{{item.date}}" bindtap="selectDate" aria-label="{{item.date + '，' + item.changeText}}">{{item.shortDate}}</button></view></scroll-view>
+      <view wx:if="{{selected}}" class="mc-detail">
+        <text class="mc-detail-date">{{selected.date}} · {{indexName}}</text>
+        <text wx:if="{{!graph.points.length}}" class="mc-detail-close">{{selected.hasClose ? selected.closeText : '收盘点位未填'}}<text wx:if="{{selected.hasClose}}" class="mc-unit">点</text></text>
+        <text wx:if="{{!graph.points.length}}" class="mc-detail-change mc-trend--{{selected.trend}}">{{selected.hasChange ? '当日 ' + selected.changeText : selected.changeText}}</text>
+        <text class="mc-observation">{{selected.note || '还没有补充背景或观察。'}}</text>
+        <button size="mini" class="mc-button mc-edit" data-date="{{selected.date}}" bindtap="editRecord" disabled="{{saving || pending}}">{{selected.hasQuote ? '更正这条' : '补充本指数'}} ›</button>
+      </view>
+    </view>
+    <view wx:else class="mc-timeline">
+      <view wx:for="{{rows}}" wx:key="date" class="mc-event">
+        <view class="mc-event-button" data-date="{{item.date}}" bindtap="toggleEvent" role="button" aria-expanded="{{expanded === item.date}}"><view class="mc-event-date"><text class="mc-event-short-date">{{item.shortDate}}</text><text class="mc-event-year">{{year}}</text></view><view class="mc-event-dot mc-mark--{{item.trend}}"></view><view class="mc-event-body"><view class="mc-event-top"><text class="mc-event-change mc-trend--{{item.trend}}">{{item.hasChange ? item.change > 0 ? '上涨 ' + item.changeText : item.change < 0 ? '下跌 ' + item.changeText : '持平 0.00%' : item.changeText}}</text><text class="mc-chevron">{{expanded === item.date ? '⌃' : '⌄'}}</text></view><text class="mc-close-line">{{item.hasClose ? '收盘 ' + item.closeText + ' 点' : '收盘点位未填'}}</text><text wx:if="{{expanded !== item.date}}" class="mc-event-note">{{item.note || '未补充背景或观察'}}</text></view></view>
+        <view wx:if="{{expanded === item.date}}" class="mc-event-expanded"><text class="mc-observation">{{item.note || '还没有补充背景或观察。'}}</text><button size="mini" class="mc-button mc-edit" data-date="{{item.date}}" bindtap="editRecord" disabled="{{saving || pending}}">{{item.hasQuote ? '更正这条' : '补充本指数'}} ›</button></view>
+        <text wx:if="{{sort === 'time' && item.gap}}" class="mc-gap">相隔 {{item.gap}} 天</text>
+      </view>
+    </view>
+  </block>
+  <view wx:elif="{{!loadFailed && !editorOpen}}" class="mc-state"><state-view type="empty" title="留住一个值得回看的交易日" description="记下收盘点位、涨跌幅和当时的观察。" action-text="记一次大行情" bind:action="openEditor" compact /></view>
+</view>

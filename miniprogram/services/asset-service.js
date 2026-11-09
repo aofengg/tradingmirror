@@ -2,8 +2,12 @@ var api = require('../utils/cloud-api');
 var trade = require('./trade-service');
 var date = require('../utils/date');
 var asset = require('../utils/asset');
+var entryTime = require('../utils/entry-time');
 var cache = {};
 var TTL = 30000;
+var marketLabels = {US:'美股',HK:'港股',CN:'A股',OTHER:'其他市场',CUSTOM:'自定义标的'};
+function marketLabel(market) { return marketLabels[market] || marketLabels.CUSTOM; }
+var markets = Object.keys(marketLabels).map(function(key) { return {key:key,label:marketLabel(key)}; });
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function ordered(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
@@ -24,9 +28,9 @@ function decorate(item) {
   event.execution_status=item.execution_status || (item.stage==='before'?'pending':'executed');
   event.execution_label={executed:'已执行',pending:'待确认',cancelled:'未执行'}[event.execution_status];
   var at=item.stage === 'before' ? (item.recorded_at||item.created_at||item.occurred_at) : (item.occurred_at||item.recorded_at||item.created_at);
-  event.history_date=labelTime(at);
+  event.history_date=item.occurred_at_precision === 'date'?entryTime.label(item,true):labelTime(at);
   event.history_year=at ? new Date(at).getFullYear()+'年'+(new Date(at).getMonth()+1)+'月' : '时间未记录';
-  event.execution_date=labelTime(item.executed_at||at);
+  event.execution_date=item.occurred_at_precision === 'date'?entryTime.label(item,true):labelTime(item.executed_at||at);
   event.asset_key=keyFor(item);
   event.history_note=item.optional_note||'';
   var reviewed=Number(item.reflection_count || 0) > 0;
@@ -43,7 +47,7 @@ function decorate(item) {
 function summary(item, listOnly) {
   if (!item) return null;
   var out=Object.assign({},item);
-  out.market_label={US:'美股',HK:'港股',CN:'A股',OTHER:'其他市场',CUSTOM:'自定义标的'}[item.market]||'自定义标的';
+  out.market_label=marketLabel(item.market);
   out.first_label=item.first_at?date.formatDate(item.first_at):'时间未记录';
   out.latest=decorate(item.latest);
   if(!listOnly){out.last_executed=item.last_executed?decorate(item.last_executed):null;out.last=out.last_executed||out.latest;}
@@ -79,6 +83,50 @@ function read(action,options) {
     return data;
   });
 }
+function chooseEntry(matches, symbol, offset) {
+  offset = offset || 0;
+  if (matches.length < 2) return Promise.resolve(matches[0] || null);
+  var counts = {};
+  matches.forEach(function(item) { counts[item.market] = (counts[item.market] || 0) + 1; });
+  var types = {stock:'股票',etf:'ETF',option:'期权',other:'其他'};
+  var remaining = matches.length - offset;
+  var page = matches.slice(offset,offset+(remaining>6?5:6));
+  var labels = page.map(function(item) {
+    return marketLabel(item.market)+' · '+item.symbol+(counts[item.market]>1?' · '+(types[item.asset_type]||item.asset_type):'');
+  });
+  if (page.length < remaining) labels.push('更多标的');
+  return new Promise(function(resolve,reject) {
+    wx.showActionSheet({
+      alertText:'选择「'+symbol+'」对应的标的',
+      itemList:labels,
+      success:function(result){resolve(page[result.tapIndex] || chooseEntry(matches,symbol,offset+page.length));},
+      fail:function(error){reject(new Error(/cancel/i.test(error.errMsg || '')?'ASSET_CANCELLED':'ASSET_PICK_FAILED'));}
+    });
+  });
+}
+function resolveEntries(symbols, active) {
+  var request = symbols.length === 1
+    ? read('getAssetContext',{symbol:symbols[0],matchSymbol:symbols[0]}).then(function(result){return [result.matches];})
+    : read('listAssetMatches',{symbols:symbols}).then(function(result){return result.matches;});
+  return request.then(async function(matches) {
+    var entries = [];
+    for (var i=0;i<symbols.length;i++) {
+      if (active && !active()) throw Error('ASSET_CANCELLED');
+      entries.push(await chooseEntry(matches[i],symbols[i]));
+    }
+    return entries;
+  });
+}
+function updateMarket(action, payload) {
+  return api.call(action, Object.assign({compact:true},payload)).then(function(result) {
+    if (!result.success) throw Error(result.error || 'ASSET_CHANGED');
+    if (!result.data.conflict) {
+      cache = {};
+      getApp().invalidatePages(['today','records','review']);
+    }
+    return result.data;
+  });
+}
 function open(key,fromRecord) {
   var pages=getCurrentPages();
   for(var i=pages.length-1;i>=0;i--) {
@@ -86,4 +134,4 @@ function open(key,fromRecord) {
   }
   wx.navigateTo({url:'/pages/asset-history/index?key='+encodeURIComponent(key)+(fromRecord?'&fromRecord=1':'')});
 }
-module.exports={keyFor:keyFor,decorate:decorate,list:function(o){return read('listAssetSummaries',o);},history:function(o){return read('getAssetHistory',o);},context:function(o){return read('getAssetContext',Object.assign({},o,{key:o.key||keyFor(o)}));},open:open,clearCache:function(){cache={};}};
+module.exports={keyFor:keyFor,decorate:decorate,list:function(o){return read('listAssetSummaries',o);},history:function(o){return read('getAssetHistory',o);},context:function(o){return read('getAssetContext',o.key?o:Object.assign({},o,{matchSymbol:o.symbol}));},markets:markets,marketLabel:marketLabel,resolveEntries:resolveEntries,updateMarket:updateMarket,open:open,clearCache:function(){cache={};}};

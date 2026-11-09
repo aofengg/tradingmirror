@@ -30,6 +30,7 @@
         <text class="pill event-card__plan {{event.plan_status === 'impulsive' ? 'pill--warm' : ''}}" catchtap="correctPlanStatus">{{event.plan_label}}{{mode === 'detail' ? ' ⌄' : ''}}</text>
         <view class="event-card__meta"><text>{{event.created_label}}</text></view>
       </view>
+      <text wx:if="{{event.entry_source_label}}" class="event-entry-source">{{event.entry_source_label}} · 录入于{{event.recorded_label}}</text>
       <view wx:if="{{event.optional_note || event.attachments.length}}" class="event-supplement">
         <view class="event-supplement__head">
           <view class="event-supplement__summary" bindtap="toggleEventSupplement" hover-class="control-pressed" hover-stay-time="80"><text>当时留下的补充</text><text>{{event.optional_note ? '备注' : ''}}{{event.optional_note && event.attachments.length ? ' · ' : ''}}{{event.attachments.length ? event.attachments.length + '张图' : ''}}</text></view>

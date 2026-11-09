@@ -16,11 +16,13 @@
 2. 创建或选择云开发环境。
 3. 如需固定环境，在 `miniprogram/config/constants.js` 填写 `CLOUD_ENV`；留空则使用开发者工具当前云环境。
 4. 上传并部署 `cloudfunctions/login`、`cloudfunctions/tradeData` 和 `cloudfunctions/reviewAI`，选择「云端安装依赖」。`reviewAI` 实际执行上限设为90秒，不能只依赖本地配置文件。
-5. 按 `docs/database-setup.md` 创建 6 个数据库集合、索引和只读安全规则。
+5. 按 `docs/database-setup.md` 创建数据库集合、索引和只读安全规则。
 
 ## 已实现
 
-- 操作前/操作后三步极简记录；
+- 操作前/操作后三步极简记录，原有单条流程保留；
+- 新增同页批量录入：多选／手输标的、明确保存、历史补记、持久化重试与撤销；
+- 市场大事记：手动录入收盘点位/涨跌幅，按市场、指数、年份查看图示与年表，涨红跌绿；
 - 买入、加仓、减仓、清仓动态原因标签；
 - 根据原因自动归类「按原计划/临时决定/不确定」；
 - 事后「满意/可以接受/懊悔」回看；
@@ -48,7 +50,11 @@
 
 ## 质量与迭代
 
+- `docs/batch-record-design.md`：批量录入当前规格。
+- `docs/batch-entry-1.8.0-acceptance.md`：1.8.0验收与实际部署状态。
 - `docs/product-loop.md`：产品原则与固定验证场景。
+- `docs/market-chronicle.md`：市场大事记规格、数据及验证边界。
+- `docs/market-chronicle-acceptance.md`：市场大事记实际验收及部署状态。
 - `docs/review-ai-design.md`：当前AI复盘设计、模型契约、提醒与失败恢复。
 - `docs/review-analysis.md`：次级理由查阅页的统计口径与历史读取规则。
 - `docs/ai-review-acceptance.md`：本轮实际验证、限制与交付状态。

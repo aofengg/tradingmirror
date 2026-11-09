@@ -1,4 +1,5 @@
 // Pure projections of the user's original records. No holdings are inferred.
+const MARKETS = ['US', 'HK', 'CN', 'OTHER', 'CUSTOM'];
 function normalize(value) { return String(value || '').trim().toUpperCase().slice(0, 20); }
 function identity(event) {
   var symbol = normalize(event.symbol);
@@ -12,6 +13,20 @@ function resolve(key, links) {
   var seen = {};
   while (links[key] && !seen[key]) { seen[key] = true; key = links[key]; }
   return key;
+}
+function entryIdentity(key, symbol, links) {
+  var input = parse(key);
+  if (!input || input.symbol !== normalize(symbol)) return null;
+  var target = parse(resolve(key, links));
+  if (!target || !MARKETS.includes(target.market) || !['stock','etf','option','other'].includes(target.asset_type)) return null;
+  return {symbol:target.symbol, market:target.market, asset_type:target.asset_type, market_source:'confirmed'};
+}
+function matchSymbols(groups, symbols) {
+  return symbols.map(function(symbol) {
+    return Object.values(groups).map(function(group) { return group.summary; }).filter(function(item) {
+      return item.symbol === symbol || item.aliases.some(function(alias) { return normalize(alias) === symbol; });
+    }).map(function(item) { return {key:item.key, symbol:item.symbol, market:item.market, asset_type:item.asset_type}; });
+  });
 }
 function time(value) { var n = value ? new Date(value).getTime() : 0; return isFinite(n) ? n : 0; }
 function occurred(event) {
@@ -56,7 +71,13 @@ function page(items, options, getTime, getId) {
   return { list:list, hasMore:items.length>limit, nextCursor:last ? {time:getTime(last),id:getId(last)} : null };
 }
 function read(events, links, action, options, now) {
-  var groups = build(events,links,now); var key = resolve(options.key || identity(options),links || {}); var group = groups[key];
+  var groups = build(events,links,now);
+  if (action === 'listAssetMatches') return {matches:matchSymbols(groups,options.symbols)};
+  if (action === 'getAssetContext' && options.matchSymbol) {
+    var matches = matchSymbols(groups,[normalize(options.matchSymbol)])[0];
+    return {matches:matches,summary:matches.length === 1 ? groups[matches[0].key].summary : null,key:matches.length === 1 ? matches[0].key : ''};
+  }
+  var key = resolve(options.key || identity(options),links || {}); var group = groups[key];
   if (action === 'listAssetSummaries') {
     var query = normalize(options.query);
     var summaries = Object.keys(groups).map(function(k){return groups[k].summary;}).filter(function(s) {
@@ -79,4 +100,4 @@ function merge(links, source, target, existing) {
   next[source]=target;
   return next;
 }
-module.exports={identity:identity,parse:parse,resolve:resolve,time:time,occurred:occurred,executed:executed,status:status,due:due,build:build,page:page,read:read,merge:merge};
+module.exports={MARKETS,entryIdentity,identity:identity,parse:parse,resolve:resolve,time:time,occurred:occurred,executed:executed,status:status,due:due,build:build,page:page,read:read,merge:merge};

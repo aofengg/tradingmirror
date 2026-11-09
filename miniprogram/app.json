@@ -5,6 +5,7 @@
     "pages/review/index",
     "pages/mine/index",
     "pages/record/index",
+    "pages/batch-record/index",
     "pages/reflection/index",
     "pages/asset-history/index",
     "pages/review-history/index"

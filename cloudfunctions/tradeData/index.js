@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk');
 const crypto = require('crypto');
 const assetTracking = require('./asset-tracking');
+const entryTime = require('./entry-time');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -189,6 +190,9 @@ async function createTradeEvent(openid, payload) {
   const executed = stage === 'after';
   const now = new Date();
   const occurredAt = payload.occurred_at ? new Date(payload.occurred_at) : now;
+  const config = payload.asset_key ? await ensureUserConfig(openid) : null;
+  const selected = config && assetTracking.entryIdentity(payload.asset_key, symbol, assetLinks(config));
+  if (payload.asset_key && !selected) return fail('INVALID_ASSET');
   const market = string(payload.market, 12) || inferMarket(symbol);
   const data = {
     _id: id,
@@ -226,6 +230,7 @@ async function createTradeEvent(openid, payload) {
     deleted_at: null,
     ext: payload.ext && typeof payload.ext === 'object' ? payload.ext : {}
   };
+  if (selected) Object.assign(data, selected);
   try {
     await db.collection(COLLECTIONS.EVENTS).doc(id).set({ data: withoutId(data) });
   } catch (error) {
@@ -250,14 +255,15 @@ async function markExecution(openid, payload) {
   // Normalize it to a "before" record so the event remains semantically consistent.
   if (status === 'pending') {
     if (Number(event.data.reflection_count || 0) > 0) return fail('REFLECTIONS_EXIST');
-    await db.collection(COLLECTIONS.EVENTS).doc(id).update({ data: {
+    const restoredTime=event.data.occurred_at_precision?{occurred_date:entryTime.day(new Date(event.data.recorded_at||event.data.created_at).getTime()),occurred_at_precision:'datetime'}:{};
+    await db.collection(COLLECTIONS.EVENTS).doc(id).update({ data: Object.assign({},restoredTime,{
       stage: 'before',
       execution_status: 'pending',
       occurred_at: event.data.recorded_at || event.data.created_at,
       executed_at: null,
       review_due_at: null,
       updated_at: SERVER_DATE()
-    } });
+    }) });
     return ok({ updated: 1 });
   }
 
@@ -268,6 +274,7 @@ async function markExecution(openid, payload) {
     update.occurred_at = now;
     update.executed_at = now;
     update.review_due_at = new Date(now.getTime() + 18 * 60 * 60 * 1000);
+    if(event.data.occurred_at_precision){update.occurred_at_precision='datetime';update.occurred_date=entryTime.day(now.getTime());}
   } else {
     update.executed_at = null;
     update.review_due_at = null;
@@ -287,6 +294,7 @@ async function updatePlanStatus(openid, payload) {
 }
 
 function horizonFor(event, reviewedAt) {
+  if (event.occurred_at_precision === 'date') return entryTime.horizon(event, reviewedAt.getTime());
   const base = event.executed_at || event.occurred_at || event.created_at;
   const age = base ? Math.max(0, (reviewedAt.getTime() - new Date(base).getTime()) / 3600000) : 0;
   if (age <= 6) return { key: 'immediate', hours: Math.round(age * 10) / 10 };
@@ -364,7 +372,8 @@ async function addRecentSymbol(openid, payload) {
   assets.unshift({
     symbol: symbol,
     market: string(payload.market, 12) || inferMarket(symbol),
-    asset_type: string(payload.asset_type, 20) || 'stock'
+    asset_type: string(payload.asset_type, 20) || 'stock',
+    ...(payload.market_source === 'confirmed' ? {market_source:'confirmed'} : {})
   });
   await db.collection(COLLECTIONS.CONFIG).doc(config._id).update({
     data: {
@@ -955,7 +964,7 @@ async function migrateUserData(openid) {
   });
 }
 
-const EVENT_READ_FIELDS = Object.fromEntries(('_id _openid is_deleted symbol market market_source asset_type stage execution_status action action_label reason_key reason_label plan_status created_at recorded_at occurred_at executed_at review_due_at reflection_count latest_feeling latest_feeling_label latest_reflection_at optional_note').split(' ').map(key => [key,true]));
+const EVENT_READ_FIELDS = Object.fromEntries(('_id _openid is_deleted symbol market market_source asset_type stage execution_status action action_label reason_key reason_label plan_status created_at recorded_at occurred_at occurred_date occurred_at_precision entry_source timezone executed_at review_due_at reflection_count latest_feeling latest_feeling_label latest_reflection_at optional_note').split(' ').map(key => [key,true]));
 const REFLECTION_READ_FIELDS = Object.fromEntries(('_id _openid is_deleted trade_event_id feeling feeling_label regret_reason_label optional_note reviewed_at created_at sequence_no event_age_hours').split(' ').map(key => [key,true]));
 
 async function readAssetEvents(openid, options = {}) {
@@ -984,24 +993,63 @@ function assetLinks(config) {
   return links;
 }
 
+async function changeAssetMarket(ref, config, events, payload) {
+  const links = assetLinks(config);
+  const rows = Array.isArray(config.asset_links) ? config.asset_links : [];
+  const last = config.asset_market_change;
+  const id = string(payload.requestId, 80);
+  if (!/^[a-zA-Z0-9_-]{8,80}$/.test(id)) return fail('VALIDATION_ERROR');
+  if (last && last.id === id) {
+    if (last.source !== payload.key || assetTracking.parse(last.target).market !== payload.market) return fail('ASSET_CHANGED');
+    return ok({key:last.target});
+  }
+  const source = payload.key;
+  const asset = assetTracking.parse(source);
+  if (!asset || !assetTracking.MARKETS.includes(payload.market)) return fail('INVALID_ASSET');
+  const groups = assetTracking.build(events, links, Date.now());
+  if (!groups[source] || links[source]) return fail('ASSET_CHANGED');
+  if (asset.market === payload.market) return ok({key:source});
+  const target = JSON.stringify([payload.market, asset.asset_type, asset.symbol]);
+  const destination = assetTracking.resolve(target, links);
+  if (destination !== target && destination !== source) return fail('ASSET_CHANGED');
+  const collision = groups[target];
+  if (collision && payload.mergeTarget !== target) {
+    return ok({conflict:true,key:target,count:collision.events.length});
+  }
+  const next = rows.filter(row => row.source !== target).concat({source:source,target:target,kind:'market'});
+  await ref.update({data:{asset_links:next,asset_market_change:{id,source,target},updated_at:SERVER_DATE()}});
+  return ok({key:target});
+}
+
 async function assetRequest(openid, action, payload) {
   if (payload.key && !assetTracking.parse(payload.key)) return fail('INVALID_ASSET');
-  const [config, events] = await Promise.all([ensureUserConfig(openid), readAssetEvents(openid, {compact:payload.compact === true,asset:payload.compact === true})]);
+  if (action === 'listAssetMatches') {
+    if (!Array.isArray(payload.symbols) || !payload.symbols.length || payload.symbols.length > 20 ||
+      payload.symbols.some(symbol => typeof symbol !== 'string' || !normalizeSymbol(symbol) || symbol.trim().length > 20)) return fail('VALIDATION_ERROR');
+    payload.symbols = payload.symbols.map(normalizeSymbol);
+  }
+  const [config, events] = await Promise.all([ensureUserConfig(openid), readAssetEvents(openid, {compact:payload.compact === true,asset:payload.compact === true && action !== 'listAssetMatches'})]);
   const links = assetLinks(config);
-  if (action === 'mergeAsset' || action === 'undoAssetMerge') {
+  if (['mergeAsset','undoAssetMerge','changeAssetMarket'].includes(action)) {
     return db.runTransaction(async transaction => {
-      const stored = await transaction.collection(COLLECTIONS.CONFIG).doc(config._id).get();
+      const ref = transaction.collection(COLLECTIONS.CONFIG).doc(config._id);
+      const stored = await ref.get();
+      if (!stored.data || stored.data._openid !== openid) return fail('AUTH_ERROR');
+      if (action === 'changeAssetMarket') return changeAssetMarket(ref, stored.data, events, payload);
       const current = assetLinks(stored.data);
+      const rows = stored.data.asset_links || [];
       let next;
       if (action === 'mergeAsset') {
         const groups = assetTracking.build(events, current, Date.now());
-        try { next = assetTracking.merge(current, payload.source, payload.target, groups); }
-        catch (error) { return fail(error.message); }
+        try {
+          assetTracking.merge(current, payload.source, payload.target, groups);
+          next = rows.concat({source:payload.source,target:payload.target});
+        } catch (error) { return fail(error.message); }
       } else {
-        if (!payload.source || current[payload.source] !== payload.target) return fail('ASSET_CHANGED');
-        next = Object.assign({}, current); delete next[payload.source];
+        if (!rows.some(row => row.kind !== 'market' && row.source === payload.source && row.target === payload.target)) return fail('ASSET_CHANGED');
+        next = rows.filter(row => row.source !== payload.source);
       }
-      await transaction.collection(COLLECTIONS.CONFIG).doc(config._id).update({data:{asset_links:Object.keys(next).map(source => ({source:source,target:next[source]})),updated_at:SERVER_DATE()}});
+      await ref.update({data:{asset_links:next,updated_at:SERVER_DATE()}});
       return ok({updated:1});
     });
   }
@@ -1010,7 +1058,7 @@ async function assetRequest(openid, action, payload) {
     result.list.forEach(item => { delete item.last_executed; });
   }
   if (action === 'getAssetHistory') {
-    result.merged_sources = Object.keys(links).filter(key => assetTracking.resolve(key, links) === result.key).map(key => ({key:key,target:links[key],symbol:assetTracking.parse(key).symbol}));
+    result.merged_sources = (config.asset_links || []).filter(row => row.kind !== 'market').map(row => row.source).filter(key => assetTracking.resolve(key, links) === result.key).map(key => ({key:key,target:links[key],symbol:assetTracking.parse(key).symbol}));
   }
   return ok(result);
 }
@@ -1098,9 +1146,11 @@ exports.main = async event => {
   const action = event && event.action;
   const payload = event && event.payload ? event.payload : {};
   try {
-    if (['listAssetSummaries', 'getAssetHistory', 'getAssetContext', 'mergeAsset', 'undoAssetMerge'].indexOf(action) >= 0) return await assetRequest(openid, action, payload);
+    if (['listMarketChronicle', 'saveMarketChronicle', 'deleteMarketChronicle', 'undoMarketChronicle'].indexOf(action) >= 0) return await require('./market-chronicle')(db)(openid, action, payload);
+    if (['listAssetSummaries', 'getAssetHistory', 'getAssetContext', 'mergeAsset', 'undoAssetMerge', 'listAssetMatches', 'changeAssetMarket'].indexOf(action) >= 0) return await assetRequest(openid, action, payload);
     if (action === 'ensureUserConfig') return ok(await ensureUserConfig(openid));
     if (action === 'createTradeEvent') return await createTradeEvent(openid, payload);
+    if (action === 'createBatchEntries' || action === 'undoBatchEntries') return await require('./batch-entry')(db, configId, assetLinks)(openid, action, payload);
     if (action === 'markExecution') return await markExecution(openid, payload);
     if (action === 'updatePlanStatus') return await updatePlanStatus(openid, payload);
     if (action === 'addReflection') return await addReflection(openid, payload);

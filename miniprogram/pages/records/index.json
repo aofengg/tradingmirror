@@ -2,6 +2,7 @@
   "navigationBarTitleText": "记录",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "state-view": "/components/state-view/index"
+    "state-view": "/components/state-view/index",
+    "market-chronicle": "/components/market-chronicle/index"
   }
 }

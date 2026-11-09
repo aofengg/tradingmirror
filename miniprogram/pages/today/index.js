@@ -147,6 +147,10 @@ Page({
     wx.navigateTo({ url: constants.ROUTES.RECORD + '?stage=after' });
   },
 
+  startBatch: function () {
+    wx.navigateTo({ url: '/pages/batch-record/index?stage=after' });
+  },
+
   startFirstRecord: function () {
     this.setData({ showWelcome: false });
     var tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null;

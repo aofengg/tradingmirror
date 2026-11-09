@@ -2,6 +2,7 @@ var assetService = require('../../services/asset-service');
 var tradeService = require('../../services/trade-service');
 var constants = require('../../config/constants');
 var share = require('../../utils/share');
+var requestId = require('../../utils/request-id');
 
 function buildTodoFilters(counts) {
   return [
@@ -15,7 +16,7 @@ Page({
   data: {
     viewMode: 'time',
     assetItems: [], assetLoading: false, assetFailed: false, assetMore: false, assetCursor: null,
-    assetQuery: '', assetTodoOnly: false,
+    assetQuery: '', assetTodoOnly: false, marketPicker: null, marketUpdatingKey: '', marketOptions: assetService.markets,
     loading: true,
     hasLoaded: false,
     loadError: false,
@@ -41,10 +42,11 @@ Page({
 
   onLoad: function () {
     share.enable();
-    this._viewScroll = {time:0,asset:0};
+    this._viewScroll = {time:0,asset:0,market:0};
     this._assetVersion = 0;
     this._eventsVersion=0;
-    this.setData({viewMode:wx.getStorageSync('records_view_mode') === 'asset' ? 'asset' : 'time'});
+    var savedMode=wx.getStorageSync('records_view_mode');
+    this.setData({viewMode:['asset','market'].indexOf(savedMode)>=0?savedMode:'time'});
     var windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
     this._swipeActionWidth = Math.round(Number(windowInfo.windowWidth || 375) * 148 / 750);
     this._openSwipeId = '';
@@ -53,10 +55,17 @@ Page({
   onShow: function () {
     if (typeof this.getTabBar === 'function') {
       var tabBar = this.getTabBar();
-      if (tabBar) tabBar.setData({ selected: 1 });
+      if (tabBar) tabBar.setData({ selected:1,hidden:!!this.data.marketPicker });
+    }
+    if(getApp().globalData._recordsInitialView==='market'){
+      getApp().globalData._recordsInitialView='';
+      this.setData({viewMode:'market'});
+      wx.setStorageSync('records_view_mode','market');
+      wx.pageScrollTo({scrollTop:0,duration:0});
     }
     var requestedFilter = getApp().globalData._recordsInitialFilter;
     if (requestedFilter) this.setData({viewMode:'time'});
+    else if(this.data.viewMode==='market')return;
     else if (this.data.viewMode === 'asset') { if (!this._assetsCurrent()) this.loadAssets(false, Math.max(20, this.data.assetItems.length)); return; }
     if (requestedFilter) {
       var requestedTodo = getApp().globalData._recordsInitialTodoFilter || 'all';
@@ -71,6 +80,7 @@ Page({
   },
 
   onPullDownRefresh: function () {
+    if(this.data.viewMode==='market'){var chronicle=this.selectComponent('#marketChronicle');if(chronicle)chronicle.refresh();else wx.stopPullDownRefresh();return;}
     assetService.clearCache();
     tradeService.clearReadCache();
     if (this.data.viewMode === 'asset') this.loadAssets();
@@ -140,6 +150,7 @@ Page({
   },
 
   onReachBottom: function () {
+    if(this.data.viewMode==='market')return;
     if (this.data.viewMode === 'asset') { if (this.data.assetMore && !this.data.assetLoading) this.loadAssets(true); return; }
     var self = this;
     if (self._eventsRefreshing || self.data.loadError) return;
@@ -318,16 +329,21 @@ Page({
     if (this._viewScroll) this._viewScroll[this.data.viewMode] = event.scrollTop;
   },
 
-  onUnload: function () { clearTimeout(this._assetTimer); this._assetVersion++;this._eventsVersion++; },
+  onUnload: function () { this._destroyed=true;clearTimeout(this._assetTimer); this._assetVersion++;this._eventsVersion++; },
 
   chooseView: function (event) {
     var mode = event.currentTarget.dataset.mode;
-    if (mode === this.data.viewMode) return;
+    if (mode === this.data.viewMode || ['time','asset','market'].indexOf(mode)<0) return;
     var self=this; var top=this._viewScroll[mode] || 0;
     this.setData({viewMode:mode},function(){wx.pageScrollTo({scrollTop:top,duration:0});});
     wx.setStorageSync('records_view_mode',mode);
+    if(mode==='market')return;
     if (mode === 'asset' && !this._assetsCurrent()) this.loadAssets(false, Math.max(20, this.data.assetItems.length));
     else if (!this.data.hasLoaded || this._loadedRevision !== getApp().getPageRevision('records')) this._loadEvents();
+  },
+
+  createMarketRecord: function () {
+    var chronicle=this.selectComponent('#marketChronicle');if(chronicle)chronicle.openEditor();
   },
 
   searchAssets: function (event) {
@@ -371,6 +387,69 @@ Page({
     next().catch(function(){if(version===self._assetVersion)self.setData({assetLoading:false,assetFailed:true});}).then(function(){wx.stopPullDownRefresh();});
   },
 
+  chooseAssetMarket: function(event) {
+    if (this._marketBusy) return;
+    var key=event.currentTarget.dataset.key;
+    var item=this.data.assetItems.find(function(asset){return asset.key===key;});
+    if (!item) return;
+    this._marketPickerOwner=getApp().globalData.openid;
+    this._setAssetMarketPicker({key:item.key,symbol:item.symbol,market:item.market});
+  },
+
+  closeAssetMarket: function() { this._setAssetMarketPicker(null); },
+
+  _setAssetMarketPicker: function(item) {
+    this.setData({marketPicker:item});
+    var bar=this.getTabBar&&this.getTabBar();
+    if (bar) bar.setData({hidden:!!item});
+  },
+
+  selectAssetMarket: function(event) {
+    var item=this.data.marketPicker;
+    if (!item||this._marketBusy||this._marketPickerOwner!==getApp().globalData.openid) return;
+    var market=assetService.markets.find(function(option){return option.key===event.currentTarget.dataset.market;});
+    if (!market) return;
+    this.closeAssetMarket();
+    if (market.key===item.market) return;
+    this._marketBusy=true;
+    this.setData({marketUpdatingKey:item.key});
+    this._saveAssetMarket(item,market);
+  },
+
+  _saveAssetMarket: async function(item,market) {
+    var owner=getApp().globalData.openid;
+    var payload={key:item.key,market:market.key,requestId:requestId.create('market')};
+    try {
+      var result=await assetService.updateMarket('changeAssetMarket',payload);
+      if (this._destroyed||getApp().globalData.openid!==owner) return;
+      if (result.conflict) {
+        var conflict=result;
+        var confirmed=await new Promise(function(resolve){
+          wx.showModal({title:'合并同一标的？',content:market.label+'已有「'+item.symbol+'」的 '+conflict.count+' 条记录。合并后一起查看，原记录和回看会保留。',
+            confirmText:'确认合并',success:function(answer){resolve(answer.confirm);},fail:function(){resolve(false);}});
+        });
+        if (!confirmed||this._destroyed||getApp().globalData.openid!==owner) return;
+        result=await assetService.updateMarket('changeAssetMarket',Object.assign(payload,{mergeTarget:conflict.key}));
+        if (result.conflict) throw Error('ASSET_CHANGED');
+      }
+      if (this._destroyed||getApp().globalData.openid!==owner) return;
+      this._assetMarketUpdated();
+      wx.showToast({title:'已改为'+market.label,icon:'none'});
+    } catch (error) {
+      if (!this._destroyed&&getApp().globalData.openid===owner) {
+        if (error.message==='ASSET_CHANGED') this._assetMarketUpdated();
+        wx.showToast({title:'市场暂未更正，请重试',icon:'none'});
+      }
+    } finally {
+      this._marketBusy=false;
+      if (!this._destroyed&&getApp().globalData.openid===owner) this.setData({marketUpdatingKey:''});
+    }
+  },
+
+  _assetMarketUpdated: function() {
+    if (this.data.viewMode==='asset') this.loadAssets(false,Math.max(20,this.data.assetItems.length));
+  },
+
   openAsset: function (event) {
     var key=event.currentTarget.dataset.key;
     if (!key) { var item=this.data.filteredEvents[event.currentTarget.dataset.index]; if(item) key=assetService.keyFor(item); }
@@ -379,6 +458,10 @@ Page({
 
   createRecord: function () {
     wx.navigateTo({ url: constants.ROUTES.RECORD + '?stage=after' });
+  },
+
+  createBatchRecord: function () {
+    wx.navigateTo({url:'/pages/batch-record/index?stage=after'});
   },
 
   openReflection: function (event) {

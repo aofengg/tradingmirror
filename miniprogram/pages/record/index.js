@@ -16,7 +16,6 @@ Page({
     symbol: '',
     symbolInput: '',
     assetKey: '',
-    resolvedAssetKey: '',
     finishLabel: '完成记录',
     actions: tradeOptions.ACTIONS,
     action: '',
@@ -59,19 +58,13 @@ Page({
     var identity=this._parseAssetKey(key); if(!identity){this._restoreDraft(stage);return;}
     key=JSON.stringify([identity.market,identity.asset_type,identity.symbol]);
     var self=this;var draft=wx.getStorageSync(constants.STORAGE_KEYS.RECORD_DRAFT);
-    function apply(){self.setData({symbol:identity.symbol,symbolInput:identity.symbol,assetKey:key,resolvedAssetKey:key,step:2});self._saveDraft();}
+    function apply(){self.setData({symbol:identity.symbol,symbolInput:identity.symbol,assetKey:key,step:2});self._saveDraft();}
     if(draft && draft.symbol){
       wx.showModal({title:'还有一份未完成的记录',content:draft.symbol+' 的草稿尚未保存。继续原草稿，或放弃它并新建这次记录。',confirmText:'继续草稿',cancelText:'放弃并新建',success:function(result){
         if(result.confirm){var oldStage=draft.stage==='before'?'before':'after';self.setData({stage:oldStage,stageLabel:oldStage==='before'?'操作前想一想':'记录刚刚的操作'});self._restoreDraft(oldStage);}
         else if(result.cancel){wx.removeStorageSync(constants.STORAGE_KEYS.RECORD_DRAFT);apply();}
       }});
     } else apply();
-  },
-
-  onAssetResolved: function (event) {
-    if(event.detail.symbol!==this.data.symbol)return;
-    this.setData({resolvedAssetKey:event.detail.key});
-    if(!this.data.completed)this._saveDraft();
   },
 
   _restoreDraft: function (stage) {
@@ -96,7 +89,6 @@ Page({
       symbol: draft.symbol,
       symbolInput: draft.symbol,
       assetKey: draft.assetKey || '',
-      resolvedAssetKey: draft.assetKey || '',
       action: action,
       actionLabel: action ? (tradeOptions.findOption(tradeOptions.ACTIONS, action) || {}).label || '' : '',
       reasons: action ? tradeOptions.getReasons(action) : [],
@@ -115,7 +107,7 @@ Page({
       stage: this.data.stage,
       step: this.data.step,
       symbol: this.data.symbol,
-      assetKey: this.data.resolvedAssetKey || this.data.assetKey,
+      assetKey: this.data.assetKey,
       action: this.data.action,
       savedAt: Date.now()
     });
@@ -131,8 +123,7 @@ Page({
       symbol: '',
       symbolInput: '',
       assetKey: '',
-      resolvedAssetKey: '',
-      action: '',
+        action: '',
       actionLabel: '',
       reasons: [],
       restoredDraft: false
@@ -156,7 +147,7 @@ Page({
   chooseSymbol: function (event) {
     if (this.data.step !== 1 || this.data.saving) return;
     var symbol = event.currentTarget.dataset.symbol;
-    this.setData({ symbol: symbol, symbolInput: symbol, assetKey:'',resolvedAssetKey:'' });
+    this.setData({ symbol: symbol, symbolInput: symbol, assetKey:'' });
     this._submissionRequestId = '';
     this._saveDraft();
     this.nextFromSymbol();
@@ -165,7 +156,7 @@ Page({
   onSymbolInput: function (event) {
     var value = String(event.detail.value || '').trim().toUpperCase().slice(0, 12);
     if (value === this.data.symbol) return;
-    this.setData({ symbol: value, symbolInput: value,assetKey:'',resolvedAssetKey:'' });
+    this.setData({ symbol: value, symbolInput: value,assetKey:'' });
     this._submissionRequestId = '';
     clearTimeout(this._draftTimer);
     var self=this;
@@ -219,17 +210,22 @@ Page({
     this._saveDraft();
     var submittedDraftId=this._draftId,submittedRequestId=this._submissionRequestId;
     var self = this;
-    var identity = this._parseAssetKey(this.data.resolvedAssetKey || this.data.assetKey);
-    var payload={
-        symbol: identity ? identity.symbol : self.data.symbol,
-        market: identity ? identity.market : undefined,
-        assetType: identity ? identity.asset_type : undefined,
-        action: self.data.action,
-        reasonKey: reasonKey,
-        stage: self.data.stage,
-        clientRequestId: submittedRequestId
-    };
-    getApp().waitForLogin().then(function () { return tradeService.createTradeEvent(payload); }).then(function (res) {
+    var explicitKey = this.data.assetKey;
+    var symbol = this.data.symbol;
+    var owner = getApp().globalData && getApp().globalData.openid;
+    function active() { return !self._destroyed && owner === (getApp().globalData && getApp().globalData.openid); }
+    var payload={action:this.data.action,reasonKey:reasonKey,stage:this.data.stage,clientRequestId:submittedRequestId};
+    getApp().waitForLogin().then(function () {
+      owner = owner || (getApp().globalData && getApp().globalData.openid);
+      if (!active()) throw Error('ASSET_CANCELLED');
+      if (explicitKey) return [Object.assign(self._parseAssetKey(explicitKey),{key:explicitKey})];
+      return assetService.resolveEntries([symbol],active);
+    }).then(function(entries) {
+      if (!active()) throw Error('ASSET_CANCELLED');
+      var identity=entries[0];
+      return tradeService.createTradeEvent(Object.assign(payload,{symbol:identity?identity.symbol:symbol,
+        market:identity&&identity.market,assetType:identity&&identity.asset_type,assetKey:identity&&identity.key}));
+    }).then(function (res) {
       if (!res.success) throw new Error(res.error || 'SAVE_FAILED');
       var draft=wx.getStorageSync(constants.STORAGE_KEYS.RECORD_DRAFT);
       if(draft && draft.draftId===submittedDraftId && draft.submissionRequestId===submittedRequestId)wx.removeStorageSync(constants.STORAGE_KEYS.RECORD_DRAFT);
@@ -246,8 +242,9 @@ Page({
       self._submissionRequestId = '';
     }).catch(function (error) {
       if(self._destroyed)return;
-      console.error('保存操作失败', error);
       self.setData({ saving: false });
+      if (error.message === 'ASSET_CANCELLED') return;
+      console.error('保存操作失败', error);
       toast.showError('暂时没记下，请重试');
     });
   },
@@ -301,6 +298,11 @@ Page({
 
   onShareAppMessage: function () {
     return share.appMessage('交易留痕｜用 10 秒记下这次决定');
+  },
+
+  openBatchRecord: function () {
+    this._flushDraft();
+    wx.navigateTo({url:'/pages/batch-record/index?stage='+this.data.stage});
   },
 
   onShareTimeline: function () {

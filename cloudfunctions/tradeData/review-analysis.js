@@ -1,5 +1,6 @@
 // Pure projections: one decision per observation, never infer profit or decision quality.
 const FEELINGS = { satisfied: '满意', acceptable: '可接受', regret: '懊悔', unknown: '其他感受', unreviewed: '未回看' };
+const entryTime = require('./entry-time');
 const ACTIONS = { buy: '买入', add: '加仓', reduce: '减仓', exit: '清仓' };
 const DAY = 86400000;
 function time(value) { const n = value ? new Date(value).getTime() : 0; return Number.isFinite(n) ? n : 0; }
@@ -102,7 +103,7 @@ function detailRow(r) {
     action:e.action,action_label:e.action_label||ACTIONS[e.action]||e.action,
     reason_key:e.reason_key,reason_label:e.reason_label||'理由未记录',optional_note:e.optional_note||'',
     plan_status:e.plan_status,plan_label:({planned:'按原计划',impulsive:'临时决定',uncertain:'不确定'})[e.plan_status]||'不确定',
-    executed_at:e.executed_at||e.occurred_at||e.created_at,execution_status:status(e),created_label:dateLabel(r.at),
+    executed_at:e.executed_at||e.occurred_at||e.created_at,execution_status:status(e),created_label:e.occurred_at_precision==='date'?entryTime.label(e,true):dateLabel(r.at),
     latest_feeling:feeling(latest),latest_feeling_label:FEELINGS[feeling(latest)],
     latest_review_note:latest?latest.optional_note||'':'',
     latest_regret_reason:feeling(latest)==='regret'?latest.regret_reason_label||'':'',

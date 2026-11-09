@@ -32,7 +32,7 @@ function normalize(events, reflections, now=Date.now()) {
     const at=time(event.executed_at)||time(event.occurred_at)||time(event.created_at);
     if(!at||!event._id){excluded.missing_date++;continue;}
     if(at>now){excluded.future++;continue;}
-    items.push({id:event._id,symbol:text(event.symbol),action:event.action,action_label:ACTIONS[event.action],status:'executed',at,reason:text(event.reason_label),reason_key:text(event.reason_key)||LEGACY_REASONS[text(event.reason_label)]||'',note:text(event.optional_note),history:[]});
+    items.push({id:event._id,symbol:text(event.symbol),action:event.action,action_label:ACTIONS[event.action],status:'executed',at,reason:text(event.reason_label),reason_key:text(event.reason_key)||LEGACY_REASONS[text(event.reason_label)]||'',note:text(event.optional_note),...(event.occurred_at_precision?{date_precision:event.occurred_at_precision,entry_source:event.entry_source||'at_time'}:{}),history:[]});
   }
   const byId=new Map(items.map(item=>[item.id,item]));
   for(const reflection of reflections){
@@ -86,7 +86,7 @@ function detail(source,p={}) {
   if(!Number.isInteger(cursor)||cursor<0)throw Error('VALIDATION_ERROR');
   if(p.source_version&&p.source_version!==source.version)throw Error('TIMELINE_CHANGED');
   const items=source.items.filter(item=>belongs(item,p.group,week)).sort((a,b)=>b.at-a.at||String(b.id).localeCompare(String(a.id)));
-  const slice=items.slice(cursor,cursor+15).map(item=>({...item,date:date(item.at),history:item.history.map(r=>({...r,date:date(r.at)}))}));
+  const slice=items.slice(cursor,cursor+15).map(item=>({...item,date:item.date_precision==='date'?date(item.at).slice(0,10)+'（时刻未填）':date(item.at),history:item.history.map(r=>({...r,date:date(r.at)}))}));
   return {source_version:source.version,group:p.group,group_label:GROUPS[p.group].label,week:weekSummary(source,p.group,week),total:items.length,items:slice,cursor:cursor+slice.length,has_more:cursor+slice.length<items.length};
 }
 module.exports={normalize,build,detail,weekSummary,parseWeek,reasonRow,GROUPS,VERSION};

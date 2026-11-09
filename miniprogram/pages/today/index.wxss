@@ -1,4 +1,6 @@
  .today-page { padding-top:28rpx; }
+.hero { display:flex; align-items:flex-end; justify-content:space-between; gap:16rpx; }
+.hero__copy { min-width:0; }
 .hero .page-title { margin-top:10rpx;font-size:42rpx; }
 .decision-actions { display:flex;gap:16rpx;margin-top:26rpx; }
 .decision-card { flex:1;min-width:0;display:flex;align-items:center;gap:12rpx;min-height:126rpx;padding:20rpx 18rpx;border:1rpx solid var(--color-border);border-radius:24rpx;background:var(--color-paper); }
@@ -47,3 +49,7 @@
 .welcome-card__skip { min-height: 70rpx; display: flex; align-items: center; justify-content: center; margin-top: 5rpx; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
 
 .todo-tab,.welcome-card__skip { min-height:88rpx; }
+
+.today-section-head { display:flex;align-items:center;justify-content:space-between;gap:12rpx;margin-top:28rpx; }
+.todo-section { margin-top:0; }
+.today-section-head + .status-shell { margin-top:0; }

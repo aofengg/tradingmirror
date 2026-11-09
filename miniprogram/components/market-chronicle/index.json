@@ -1,0 +1,4 @@
+{
+  "component": true,
+  "usingComponents": {"state-view":"/components/state-view/index"}
+}

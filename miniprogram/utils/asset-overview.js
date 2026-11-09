@@ -1,4 +1,5 @@
 var date=require('./date');
+var entryTime=require('./entry-time');
 function time(value){var n=value ? new Date(value).getTime() : 0;return isFinite(n)?n:0;}
 function label(value){if(!value)return '时间未记录';var d=new Date(value);return date.formatDate(value)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
 function feeling(item){
@@ -13,7 +14,7 @@ function build(events,reflections){
     if(event.is_deleted||byId[event._id])return;
     var status=event.execution_status||(event.stage==='before'?'pending':'executed');
     var at=status==='executed' ? time(event.executed_at)||time(event.occurred_at)||time(event.created_at) : time(event.recorded_at)||time(event.created_at)||time(event.occurred_at);
-    var node={id:'event:'+event._id,eventId:event._id,kind:'operation',time:at,date:label(at),action:event.action,label:event.action_label||event.action,
+    var node={id:'event:'+event._id,eventId:event._id,kind:'operation',time:at,date:event.occurred_at_precision==='date'?entryTime.label(event,true):label(at),dateOnly:event.occurred_at_precision==='date',action:event.action,label:event.action_label||event.action,
       note:event.reason_label||'',status:status,statusLabel:event.execution_label||'',reviewStatus:event.review_status,reviewLabel:event.review_label};
     byId[event._id]=node;rows.push(node);
   });
@@ -48,7 +49,7 @@ function layout(rows,limit,options){
     row.shortDate=row.time ? date.formatShort(row.time) : '时间未记';
     var detail=[];
     if(row.time && Object.keys(years).length>1)detail.push(new Date(row.time).getFullYear()+'年');
-    if(row.time && days[date.formatDate(row.time)]>1)detail.push(row.date.slice(-5));
+    if(row.time && days[date.formatDate(row.time)]>1 && !row.dateOnly)detail.push(row.date.slice(-5));
     row.dateDetail=detail.join('\n');
   });
   var height=0;

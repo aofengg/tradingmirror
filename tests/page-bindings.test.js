@@ -16,7 +16,7 @@ pageDirs.concat(fs.readdirSync(path.join(root,'components')).map(function(name){
   var match;
   while ((match = matcher.exec(wxml))) bindings.push(match[1]);
   bindings.forEach(function (name) {
-    var pattern = new RegExp('(?:^|\\n)\\s*' + name + '\\s*:\\s*function\\s*\\(');
+    var pattern = new RegExp('(?:^|\\n)\\s*' + name + '\\s*:\\s*(?:async\\s+)?function\\s*\\(');
     assert.ok(pattern.test(js), directory + ' missing handler ' + name);
   });
 });

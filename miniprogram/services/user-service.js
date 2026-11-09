@@ -62,12 +62,17 @@ function getConfig() {
   return configRequest;
 }
 
-function addRecentSymbol(symbol) {
+function addRecentSymbol(symbol, identity) {
   var normalized = String(symbol || '').trim().toUpperCase();
   if (!normalized) return Promise.resolve({ success: false, data: null, error: 'VALIDATION_ERROR' });
   return getConfig().then(function (res) {
     if (!res.success) return res;
     var asset = assetUtil.fromSymbol(normalized);
+    if (identity && identity.market) {
+      asset.market = identity.market;
+      asset.asset_type = identity.asset_type || asset.asset_type;
+      if (identity.market_source) asset.market_source = identity.market_source;
+    }
     return cloudApi.call('addRecentSymbol', asset).then(function (saveRes) {
       if (saveRes.success) {
         cachedConfig.recent_symbols = saveRes.data.recent_symbols;

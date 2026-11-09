@@ -39,7 +39,7 @@ function loadPage(deps,globals){let definition;vm.runInNewContext(fs.readFileSyn
   const backendEvent=Object.assign({_openid:'owner',is_deleted:false},original),snapshots={},updates=[];
   const db={command:{},serverDate:()=>new Date(),collection(name){return {doc(id){return {get:async()=>({data:name==='trade_events'?backendEvent:snapshots[id]}),set:async({data})=>{snapshots[id]=Object.assign({_id:id},data);},update:async({data})=>{updates.push(data);Object.assign(backendEvent,data);}};}};}};
   db.runTransaction=callback=>callback(db);
-  const backend={exports:{},console,require:name=>name==='wx-server-sdk'?{init(){},database:()=>db,getWXContext:()=>({OPENID:'owner'})}:name==='./asset-tracking'?require('../cloudfunctions/tradeData/asset-tracking'):require(name)};
+  const backend={exports:{},console,require:name=>name==='wx-server-sdk'?{init(){},database:()=>db,getWXContext:()=>({OPENID:'owner'})}:name==='./asset-tracking'?require('../cloudfunctions/tradeData/asset-tracking'):name==='./entry-time'?require('../cloudfunctions/tradeData/entry-time'):require(name)};
   vm.runInNewContext(fs.readFileSync('cloudfunctions/tradeData/index.js','utf8'),backend);
   const request={action:'addReflection',payload:{client_request_id:'cancelled-review-1',trade_event_id:'cancelled',feeling:'regret',regret_reason:'missed_opportunity',regret_reason_label:'错过机会'}};
   const saved=await backend.exports.main(request);assert(saved.success);assert.equal(saved.data.snapshot.regret_reason_label,'错过机会');assert.equal(backendEvent.execution_status,'cancelled');assert.equal(backendEvent.reflection_count,1);
